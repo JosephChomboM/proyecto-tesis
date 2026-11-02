@@ -1,0 +1,64 @@
+schema: spec-driven
+project: seminario
+persistence: openspec
+context: |
+  Initial discovery date: 2026-11-01; source-only workspace with no existing runner.
+  Implemented stack: Python >=3.11 (local environment 3.12), Streamlit, SQLite,
+  Pandas/NumPy, scikit-learn Random Forest, and Plotly.
+  Architecture: src/restaurante service layer with transactional SQLite operations,
+  isolated demo/own databases, independent forecast/planning module, app.py UI.
+  Interface language: Spanish. Technical SDD artifacts: English.
+  Requirements source: SISTEMAS-GONZALO CACERES-JOSEPH CHOMBO (1).pdf,
+  refined by the user's operational restaurant-system clarification.
+strict_tdd: false
+testing:
+  detected_at: 2026-11-01
+  discovery_root: .
+  discovery_depth: 2
+  projects:
+    - path: .
+      stack: Python/Streamlit/SQLite
+      runner: pytest
+      test_command: .venv/bin/python -m pytest -q
+      unit_tests: tests/test_forecast.py
+      integration_tests: tests/test_service.py
+      ui_tests: tests/test_app.py
+      ui_harness: streamlit.testing.v1.AppTest
+  workspace_test_command: .venv/bin/python -m pytest -q
+  strict_tdd_reason: Preserved initial false decision; no application project or workspace runner existed at initialization.
+  layers:
+    unit: true
+    integration: true
+    ui_app_test: true
+    e2e: false
+    manual_browser_smoke: true
+  coverage_command: null
+  linter_command: .venv/bin/ruff check .
+  typecheck_command: null
+  formatter_command: .venv/bin/ruff format --check app.py src tests
+  build_command: .venv/bin/python -m compileall -q app.py src/restaurante
+rules:
+  proposal:
+    - Trace scope to the source PDF and distinguish assumptions from explicit requirements.
+    - Include rollback considerations for risky changes.
+  specs:
+    - Use RFC 2119 requirement keywords and Given/When/Then scenarios.
+    - Preserve requirement identifiers and source references for traceability.
+  design:
+    - Document technology decisions with rationale before implementation.
+    - Include data model, access controls, and important workflow states.
+  tasks:
+    - Group tasks by phase with hierarchical numbering and explicit dependencies.
+    - Include acceptance verification for user-visible workflows.
+  apply:
+    guidelines:
+      - Implement approved specifications and keep assumptions visible.
+      - Establish appropriate tests and update testing capabilities once the stack exists.
+    tdd: false
+    test_command: .venv/bin/python -m pytest -q
+  verify:
+    test_command: .venv/bin/python -m pytest -q
+    build_command: .venv/bin/python -m compileall -q app.py src/restaurante
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.
