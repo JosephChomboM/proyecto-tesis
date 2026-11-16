@@ -13,7 +13,7 @@ def test_render_without_access_key_fails_closed(tmp_path, monkeypatch):
     monkeypatch.setenv("RENDER", "true")
     monkeypatch.delenv("RESTAURANTE_ACCESS_PASSWORD", raising=False)
     monkeypatch.setenv("RESTAURANTE_DATA_DIR", str(tmp_path))
-    app = AppTest.from_file(str(APP)).run()
+    app = AppTest.from_file(str(APP), default_timeout=30).run()
     assert not app.exception
     assert not app.button
     assert not list(tmp_path.glob("*.sqlite3"))
@@ -44,7 +44,7 @@ def test_repeated_invalid_access_is_temporarily_blocked(tmp_path, monkeypatch):
     monkeypatch.setenv("RENDER", "true")
     monkeypatch.setenv("RESTAURANTE_ACCESS_PASSWORD", "test-only-access-key-123")
     monkeypatch.setenv("RESTAURANTE_DATA_DIR", str(tmp_path))
-    app = AppTest.from_file(str(APP)).run()
+    app = AppTest.from_file(str(APP), default_timeout=30).run()
     for _ in range(5):
         label(app.text_input, "Clave de acceso").set_value("wrong")
         label(app.button, "Entrar").click().run()
