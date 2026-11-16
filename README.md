@@ -29,6 +29,11 @@ uv pip install --python .venv/bin/python -e '.[dev]'
 
 ## Tu primera operación
 
+La pantalla **Resumen** reúne indicadores, alertas y accesos rápidos a compras, ventas,
+inventario y planificación. **Stock y mermas** permite buscar insumos por nombre. El plan
+destaca presupuesto estimado, cantidad de insumos por comprar y próxima fecha de pedido.
+La interfaz adapta sus tarjetas y formularios al ancho de escritorio o móvil.
+
 1. En **Catálogo → Insumos**, registra nombre, unidad, costo de referencia, presentación de compra, vida útil y stock de seguridad.
 2. En **Platos**, registra nombre y precio. En **Recetas**, indica cuánto insumo necesita una porción de cada plato, usando la misma unidad del inventario.
 3. En **Compras**, registra lo recibido y su vencimiento. Puedes ingresar unidades de inventario (5 kg) o presentaciones (2 sacos de 50 kg). En ese caso ingresa el costo por saco: el sistema convierte cantidad y costo unitario.

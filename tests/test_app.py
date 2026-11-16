@@ -158,3 +158,25 @@ def test_demo_evaluation_renders_metrics(app):
     by_label(app.button, "Evaluar con historial disponible").click().run(timeout=60)
     assert not app.exception
     assert any("WAPE (%)" in frame.value.columns for frame in app.dataframe)
+
+
+def test_dashboard_quick_action_navigates_to_purchase_form(app):
+    app.run()
+    by_label(app.button, "Explorar demostración").click().run()
+    by_label(app.button, "Nueva compra").click().run()
+    assert not app.exception
+    assert by_label(app.radio, "Tu operación").value == "Compras"
+    assert by_label(app.button, "Registrar compra")
+
+
+def test_inventory_search_filters_visible_table(app, tmp_path):
+    service = RestaurantService(tmp_path / "restaurant.sqlite3")
+    service.save_ingredient("Arroz", "kg", 4, 50, 90, 1)
+    service.save_ingredient("Pollo", "kg", 12, 1, 2, 1)
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    navigate(app, "Stock y mermas")
+    by_label(app.text_input, "Buscar insumo").set_value("ARROZ").run()
+    assert not app.exception
+    stock_table = next(frame.value for frame in app.dataframe if "Disponible" in frame.value.columns)
+    assert stock_table["Nombre"].tolist() == ["Arroz"]
