@@ -1,0 +1,66 @@
+name: Validar y desplegar
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mise-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Pruebas y calidad
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Instalar dependencias verificadas
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install --no-deps .
+      - name: Revisar código
+        run: python -m ruff check .
+      - name: Ejecutar pruebas
+        run: python -m pytest -q
+      - name: Comprobar arranque del servidor
+        run: python scripts/smoke.py
+
+  deploy:
+    name: Desplegar en Render
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: mise-production
+      cancel-in-progress: false
+    steps:
+      - name: Solicitar despliegue del commit validado
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "Falta configurar RENDER_DEPLOY_HOOK_URL en los secretos del repositorio."
+            exit 1
+          fi
+          curl --silent --show-error --fail --request POST \
+            --output /dev/null --max-time 60 \
+            "${RENDER_DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}"
+          echo "Render recibió el commit validado. Revisa el despliegue y su health check en Render."

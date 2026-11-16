@@ -29,3 +29,6 @@ Suggestions MUST account for demand, safety stock, stock surviving each target d
 - GIVEN stock expiring before a target date
 - WHEN its purchase suggestion is computed
 - THEN that stock does not reduce the target requirement.
+
+### Amendment: data completeness and evaluation
+Missing calendar days MUST NOT become zero training targets. Complete zero-sales days are explicit. Lag imputation and history gaps MUST be disclosed. Weekly closure days MUST not trigger replenishment. Plans expose order dates from delivery lead time and alert impossible past orders. Open-day plans are preliminary. Rolling-origin evaluation MUST use prior-only training, identical observed test pairs across strategies, ingredient-specific metrics and explicit zero handling.

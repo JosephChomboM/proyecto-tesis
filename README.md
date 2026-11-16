@@ -4,6 +4,13 @@ Sistema local para administrar insumos, recetas, compras, ventas, stock y mermas
 
 ## Iniciar
 
+En Windows (PowerShell), desde la carpeta del proyecto:
+
+```powershell
+python -m pip install -e ".[dev]"
+python -m streamlit run app.py
+```
+
 Con el entorno que acompaña este proyecto:
 
 ```bash
@@ -22,22 +29,37 @@ uv pip install --python .venv/bin/python -e '.[dev]'
 
 ## Tu primera operación
 
+La pantalla **Resumen** reúne indicadores, alertas y accesos rápidos a compras, ventas,
+inventario y planificación. **Stock y mermas** permite buscar insumos por nombre. El plan
+destaca presupuesto estimado, cantidad de insumos por comprar y próxima fecha de pedido.
+La interfaz adapta sus tarjetas y formularios al ancho de escritorio o móvil.
+
 1. En **Catálogo → Insumos**, registra nombre, unidad, costo de referencia, presentación de compra, vida útil y stock de seguridad.
 2. En **Platos**, registra nombre y precio. En **Recetas**, indica cuánto insumo necesita una porción de cada plato, usando la misma unidad del inventario.
-3. En **Compras**, registra lo recibido y su vencimiento. La cantidad se ingresa en unidades de inventario; por ejemplo, 5 kg de arroz.
+3. En **Compras**, registra lo recibido y su vencimiento. Puedes ingresar unidades de inventario (5 kg) o presentaciones (2 sacos de 50 kg). En ese caso ingresa el costo por saco: el sistema convierte cantidad y costo unitario.
 4. En **Ventas**, elige el plato y sus porciones. La receta descuenta el stock automáticamente. Si falta un insumo, la venta completa se rechaza sin descontar existencias.
 5. Consulta **Stock y mermas** para registrar pérdidas y procesar saldos vencidos. Los lotes vencidos nunca están disponibles para vender; el lote sigue vigente durante su fecha de vencimiento.
-6. En **Plan de compras**, revisa hasta siete días y descarga las sugerencias. Confirma en Compras únicamente lo que realmente recibiste.
+6. En **Ventas**, registra también los pedidos reales rechazados por falta de stock. No generan ingresos ni descuentos de inventario, pero completan la demanda observada.
+7. En **Cierre diario**, confirma que terminaste de registrar la jornada o indica que no abriste. El cierre bloquea movimientos de esa fecha y anteriores: registra las jornadas pendientes primero, en orden.
+8. En **Plan de compras**, revisa hasta siete días, los días de atención y el plazo de entrega. Descarga las sugerencias. Confirma en Compras únicamente lo que realmente recibiste.
 
-Los formularios aceptan fechas de operación hasta hoy, según la hora de Lima. Para conservar un inventario consistente, los movimientos deben registrarse en orden cronológico. Desactivar platos o insumos conserva su historial. La unidad de un insumo con movimientos no se puede cambiar.
+Los formularios aceptan fechas de operación hasta hoy, según la hora de Lima. Para conservar un inventario consistente, los movimientos deben registrarse en orden cronológico. Desactivar platos o insumos conserva su historial. La unidad de un insumo con movimientos o recetas no se puede cambiar. La rotación utiliza primero lo que vence antes (PVPS), con recepción e identificador como desempate. La vida útil incluye el día de recepción: un producto de vida útil 1 vence ese mismo día, sujeto a sus condiciones reales de conservación.
+
+Las recetas expresan peso bruto de almacén por porción; incluye la cantidad previa a limpieza o pelado. No registres nuevamente esa pérdida habitual como merma. La operación actual descuenta insumos al vender y está orientada a preparación por pedido. No modela todavía producción por lotes, sobrantes preparados ni conversiones entre crudo y cocido.
+
+En **Stock y mermas → Corregir stock mediante conteo físico** puedes reconciliar existencias utilizables. Los faltantes quedan auditados como merma de ajuste; los excedentes crean lotes de ajuste al costo de referencia y no se suman al historial de compras. Un ajuste no anula ni corrige automáticamente una venta o compra equivocada.
 
 ## Qué significa una sugerencia
 
-El pronóstico estima consumo por insumo a partir de ventas registradas. Con suficiente historial utiliza Random Forest; con pocos datos emplea una referencia estacional o el promedio y muestra su limitación. Sin historial no inventa consumo: solo puede sugerir cubrir el stock de seguridad.
+El pronóstico usa jornadas confirmadas completas: consumo de las ventas más insumos correspondientes a pedidos no atendidos, con recetas conservadas al registrar cada operación. Una jornada completa sin consumo aporta un cero conocido. Los días pendientes y días sin apertura no se convierten en consumo cero. El calendario futuro de atención se configura en el plan; deben revisarse cierres excepcionales.
+
+Con al menos 56 días observados utiliza Random Forest; con pocos datos emplea una referencia estacional o el promedio y muestra su limitación. Los huecos del historial se excluyen como objetivos de entrenamiento; para calcular rezagos se arrastra el último dato conocido y se informa la cantidad de días faltantes. Esta imputación requiere evaluación y puede sesgar el pronóstico. Sin historial solo se puede sugerir cubrir la reserva.
 
 El plan descuenta existencias utilizables, considera vencimientos y reserva, y redondea la compra a las presentaciones configuradas. Distribuye el stock una sola vez a lo largo de los días. Las recomendaciones posteriores suponen que recibiste las compras sugeridas antes de cada servicio. **Una sugerencia no crea una compra ni envía pedidos a proveedores.**
 
-La aplicación no informa una precisión que no haya sido medida. Las ventas perdidas por falta de stock no quedan representadas como demanda observada; registra las ventas con constancia para construir un historial útil.
+El plan empieza mañana. Mientras hoy esté abierto se considera preliminar, pues no descuenta ventas aún no registradas. La fecha de pedido es la fecha de recepción necesaria menos el plazo de entrega indicado. Los pedidos con fecha pasada se alertan como no garantizados. No optimiza presupuesto, capacidad de frío, mínimos por proveedor ni rutas de compra. La reserva es una cantidad fija configurable, no un intervalo de confianza.
+
+En **Evaluación temporal del pronóstico** puedes comparar el método automático con promedio y referencia semanal. Usa tres bloques retrospectivos no superpuestos de siete días, con al menos 56 observaciones de entrenamiento por insumo. Exporta predicciones y MAE, RMSE, sesgo, WAPE y MAPE por insumo. MAPE excluye días cero e informa cuántos; WAPE es indefinido si la demanda total es cero. El resultado no constituye por sí solo una prueba causal ni una evaluación con usuarios.
 
 ## Datos y copias de seguridad
 
@@ -50,13 +72,15 @@ La demostración se prepara una sola vez y conserva los cambios de las siguiente
 
 Para guardar los archivos en otra carpeta, define `RESTAURANTE_DATA_DIR` antes de iniciar. No compartas una misma carpeta entre varias instancias de la aplicación.
 
-Antes de mover el sistema o actualizarlo, detén Streamlit y copia la carpeta de datos completa a un respaldo seguro. Conserva los archivos originales hasta comprobar que la copia abre correctamente. Los CSV son útiles para consultar registros; no sustituyen la copia completa de la base de datos. La aplicación no incluye funciones que borren o reinicien automáticamente tus registros.
+Puedes usar **Descargar respaldo completo** en la barra lateral: produce una copia SQLite consistente, incluidos datos confirmados del registro WAL. Para restaurarla, detén Streamlit y coloca la copia en una carpeta nueva con el nombre del espacio correspondiente; apunta `RESTAURANTE_DATA_DIR` a esa carpeta y conserva los originales. No mezcles una copia restaurada con archivos WAL/SHM de otra base. Los CSV no sustituyen el respaldo completo.
+
+Las bases anteriores se amplían automáticamente al esquema 2 sin borrar registros. Sus ventas históricas se conservan, pero no se presumen jornadas completas: el historial operativo nuevo requiere cierre. Si ya existen movimientos recientes, los cierres antiguos no se reconstruyen automáticamente; requieren un proceso de migración revisado.
 
 ## Alcance y relación con la tesis
 
 Este MVP cubre la operación de un restaurante por un administrador de confianza en un equipo local. No incluye facturación electrónica, pagos, cuentas de usuario ni publicación segura en Internet. El dashboard muestra ventas, stock y alertas; no debe interpretarse como un balance contable.
 
-La demostración usa recetas, precios y patrones ilustrativos. No es un conjunto calibrado con fuentes oficiales ni evidencia de resultados reales. Quedan como trabajo de investigación: calibración con fuentes verificables, tres perfiles completos de 2024–2025, comparación controlada Random Forest/XGBoost/LSTM, métricas y pruebas estadísticas, simulación comparativa de políticas, juicio de expertos y evaluación SUS. Consulta [la trazabilidad](docs/traceability.md).
+La demostración usa recetas, precios y patrones ilustrativos. No es un conjunto calibrado con fuentes oficiales ni evidencia de resultados reales. Quedan como trabajo de investigación: calibración con fuentes verificables, tres perfiles completos de 2024–2025, comparación controlada Random Forest/XGBoost/LSTM, pruebas estadísticas, simulación comparativa de políticas, juicio de expertos y evaluación SUS. Consulta [la trazabilidad](docs/traceability.md) y [los criterios de validación](docs/validacion-peru.md).
 
 ## Desarrollo y verificación
 

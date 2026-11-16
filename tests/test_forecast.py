@@ -95,10 +95,11 @@ def test_short_history_baselines_and_recursive_week():
     assert week.predicted.tolist() == [10, 11, 12, 13, 14, 15, 16, 10]
 
 
-def test_missing_calendar_days_are_zero_and_disabled_items_omitted():
+def test_missing_calendar_days_are_unknown_and_disabled_items_omitted():
     data = history(7).iloc[[0, 6]]
     result = forecast_demand(data, ingredients(), "2026-01-08", 1)
-    assert result.predicted.iloc[0] == pytest.approx(26 / 7)
+    assert result.predicted.iloc[0] == pytest.approx(13)
+    assert result.missing_days.iloc[0] == 5
     assert forecast_demand(data, ingredients(active=False), "2026-01-08").empty
 
 

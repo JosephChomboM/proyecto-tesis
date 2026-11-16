@@ -63,6 +63,34 @@ CREATE TABLE IF NOT EXISTS demo_demand (
 );
 CREATE INDEX IF NOT EXISTS lots_available ON purchases(ingredient_id, received_on, id);
 CREATE INDEX IF NOT EXISTS sales_date ON sales(sold_on);
+CREATE TABLE IF NOT EXISTS day_closures (
+ day TEXT PRIMARY KEY, status TEXT NOT NULL CHECK(status IN ('complete','closed')),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS daily_demand (
+ day TEXT NOT NULL REFERENCES day_closures(day),
+ ingredient_id INTEGER NOT NULL REFERENCES ingredients(id),
+ quantity REAL NOT NULL CHECK(quantity>=0),
+ PRIMARY KEY(day,ingredient_id)
+);
+CREATE TABLE IF NOT EXISTS unmet_demand (
+ id INTEGER PRIMARY KEY, dish_id INTEGER NOT NULL REFERENCES dishes(id),
+ portions INTEGER NOT NULL CHECK(portions>0), day TEXT NOT NULL, reason TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS unmet_ingredients (
+ event_id INTEGER NOT NULL REFERENCES unmet_demand(id),
+ ingredient_id INTEGER NOT NULL REFERENCES ingredients(id), quantity REAL NOT NULL,
+ PRIMARY KEY(event_id,ingredient_id)
+);
+CREATE TABLE IF NOT EXISTS stock_adjustments (
+ id INTEGER PRIMARY KEY, ingredient_id INTEGER NOT NULL REFERENCES ingredients(id),
+ expected REAL NOT NULL, counted REAL NOT NULL, reason TEXT NOT NULL, day TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS adjustment_lots (
+ purchase_id INTEGER PRIMARY KEY REFERENCES purchases(id),
+ adjustment_id INTEGER NOT NULL REFERENCES stock_adjustments(id)
+);
+UPDATE metadata SET value='2' WHERE key='schema_version';
 """
 
 

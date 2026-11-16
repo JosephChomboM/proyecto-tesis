@@ -1,0 +1,93 @@
+:root {
+  --mise-green: #245846;
+  --mise-ink: #243b32;
+  --mise-muted: #62736a;
+  --mise-line: #e0e6df;
+}
+.stApp { background: #f7f8f4; }
+.block-container { max-width: 1240px; padding: 4.5rem 2.5rem 4rem; }
+h1, h2, h3 { color: var(--mise-ink); letter-spacing: -.035em; }
+h1 { font-size: clamp(1.9rem, 3.1vw, 2.8rem); font-weight: 650; line-height: 1.15; }
+h2 { font-size: 1.45rem; font-weight: 650; }
+h3 { font-size: 1.1rem; font-weight: 650; }
+p, label { line-height: 1.6; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {
+  color: var(--mise-muted) !important; opacity:1; }
+[data-testid="stHeader"] { background: rgba(247,248,244,.95); }
+[data-testid="stSidebar"] { background: #edf1ea; border-right: 1px solid var(--mise-line); }
+[data-testid="stSidebarUserContent"] { padding: 1.5rem 1.15rem; }
+.mise-brand { display:flex; align-items:center; gap:.75rem; margin:.3rem 0 1.8rem; }
+.mise-brand-mark { display:grid; place-items:center; width:46px; height:46px; border-radius:14px;
+  background:var(--mise-green); color:#fff; font-size:1.8rem; font-weight:700; letter-spacing:-.1em; }
+.mise-brand strong { display:block; font-size:1.9rem; line-height:1; letter-spacing:-.07em; }
+.mise-brand div > span { display:block; font-size:.76rem; color:#5e7064; margin-top:.4rem; }
+[data-testid="stSidebar"] [role="radiogroup"] { gap:.3rem; }
+[data-testid="stSidebar"] [role="radiogroup"] > label { align-self:stretch; width:100%; }
+[data-testid="stSidebar"] [role="radiogroup"] label { border-radius:10px; padding:.65rem .7rem;
+  margin:0; width:100%; transition:background .15s; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background:#e0e8dd; }
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) { background:#d8e6d9; color:#17452f; font-weight:600; }
+.mise-context { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
+  gap:.7rem; color:var(--mise-muted); font-size:.76rem; border-bottom:1px solid var(--mise-line);
+  padding:0 0 1rem; margin-bottom:1.5rem; }
+.mise-context-label { display:flex; align-items:center; gap:.5rem; }
+.mise-dot { width:7px; height:7px; background:#578669; border-radius:50%; display:inline-block; }
+.mise-page-header { margin-bottom:1.3rem; }
+.mise-eyebrow { color:#526b5b; font-size:.68rem; font-weight:700; letter-spacing:.14em; margin:0 0 .65rem; }
+.mise-page-header h1 { margin:0; padding:0; }
+.mise-description { color:var(--mise-muted); max-width:760px; font-size:.95rem; margin:.8rem 0 0; }
+[data-testid="stMetric"] { background:#fff; border:1px solid var(--mise-line); border-radius:15px;
+  padding:1.2rem 1.3rem; min-height:112px; }
+[data-testid="stMetricLabel"] { color:var(--mise-muted); font-size:.85rem; }
+[data-testid="stMetricValue"] { font-size:2rem; font-weight:650; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+[data-testid="stForm"] { background:#fff; border:1px solid var(--mise-line); border-radius:15px; padding:1.4rem; }
+[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--mise-line); border-radius:15px; }
+[data-testid="stExpander"] { background:#fff; border:1px solid var(--mise-line); border-radius:12px; }
+[data-testid="stExpander"] summary { padding:.8rem 1rem; }
+[data-testid="stExpander"] summary:hover { color:var(--mise-green); }
+[data-baseweb="input"], [data-baseweb="select"] > div, [data-baseweb="textarea"] {
+  background:#f7f9f6; border-color:#d6dfd6; border-radius:9px; }
+[data-testid="stNumberInput"] button { min-width:36px; }
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button,
+[data-testid="stFormSubmitButton"] button { min-height:43px; border-radius:9px; font-weight:600; }
+[data-testid="stButton"] button[kind="primary"], [data-testid="stFormSubmitButton"] button[kind="primary"] {
+  box-shadow:0 3px 6px #24584614; }
+[data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover { border-color:#698871; }
+[data-testid="stTabs"] [role="tablist"] { border-bottom:1px solid var(--mise-line); gap:1.5rem; }
+[data-testid="stTabs"] [role="tab"] { padding:.6rem .15rem; font-size:.9rem; }
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] { font-weight:700; }
+[data-testid="stDataFrame"] { border:1px solid var(--mise-line); border-radius:12px; overflow:hidden; }
+[data-testid="stAlert"] { border-radius:10px; font-size:.88rem; }
+.mise-note { border-left:3px solid #a9c0a6; background:#edf3eb; border-radius:0 10px 10px 0;
+  padding:.9rem 1rem; margin:.2rem 0 .8rem; }
+.mise-note strong { display:block; font-size:.86rem; color:#34553e; }
+.mise-note p { color:#52695a; font-size:.82rem; margin:.3rem 0 0; }
+.mise-welcome { display:grid; grid-template-columns:1.35fr 1fr; gap:3rem; align-items:center;
+  background:#e7eee2; border:1px solid #d9e4d3; border-radius:22px; padding:3rem; margin-bottom:1.6rem; }
+.mise-welcome h1 { font-size:clamp(2.2rem,4vw,3.5rem); max-width:550px; margin:.6rem 0 1rem; }
+.mise-welcome > div > p:not(.mise-eyebrow) { color:#526a55; font-size:1.05rem; }
+.mise-welcome-tags { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1.5rem; }
+.mise-welcome-tags span { font-size:.72rem; border:1px solid #bbcfb8; border-radius:20px; padding:.3rem .7rem; }
+.mise-workflow { border-radius:16px; background:#f7faf4; padding:.4rem 1.5rem; }
+.mise-workflow > div { display:flex; align-items:center; gap:1rem; padding:1.2rem 0; }
+.mise-workflow > div + div { border-top:1px solid #dee7d9; }
+.mise-workflow > div > span { color:#7a9478; font-size:.76rem; font-weight:700; }
+.mise-workflow p { margin:0; }
+.mise-workflow strong { display:block; font-size:1rem; }
+.mise-workflow small { color:#62785f; font-size:.8rem; }
+.st-key-welcome_demo, .st-key-welcome_own { background:#fff; }
+::selection { background:#d4e6ce; color:#173e29; }
+button:focus-visible, a:focus-visible { outline:3px solid #a16626 !important; outline-offset:3px; }
+input, textarea { caret-color:var(--mise-green); }
+a { text-underline-offset:.2em; }
+@media (max-width: 768px) {
+  .block-container { padding:3.8rem 1rem 3rem; }
+  .mise-welcome { grid-template-columns:1fr; gap:1.3rem; padding:1.5rem; border-radius:16px; }
+  .mise-welcome h1 { font-size:2.3rem; }
+  .mise-context { font-size:.7rem; }
+  [data-testid="stMetric"] { padding:1rem; min-height:95px; }
+  [data-testid="stForm"] { padding:1rem; }
+  [data-testid="stMetricValue"] { font-size:1.75rem; }
+  [data-testid="stTabs"] [role="tablist"] { gap:1rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition:none !important; } }

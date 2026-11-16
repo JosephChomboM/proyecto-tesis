@@ -106,8 +106,9 @@ class RestaurantService:
                 old = self._get(connection, "ingredients", ingredient_id)
                 used = connection.execute(
                     "SELECT 1 FROM purchases WHERE ingredient_id=? UNION ALL "
-                    "SELECT 1 FROM demo_demand WHERE ingredient_id=? LIMIT 1",
-                    (ingredient_id, ingredient_id)).fetchone()
+                    "SELECT 1 FROM demo_demand WHERE ingredient_id=? UNION ALL "
+                    "SELECT 1 FROM recipes WHERE ingredient_id=? LIMIT 1",
+                    (ingredient_id, ingredient_id, ingredient_id)).fetchone()
                 if old["unit"] != unit and used:
                     raise DomainError("No se puede cambiar la unidad de un insumo con movimientos.")
                 connection.execute(
@@ -200,9 +201,14 @@ class RestaurantService:
     def _chronological(connection, day):
         if day > business_today().isoformat():
             raise DomainError("No se pueden registrar movimientos con fecha futura.")
+        closed = connection.execute("SELECT MAX(day) FROM day_closures").fetchone()[0]
+        if closed and day <= closed:
+            raise DomainError(f"El día ya está cerrado. Registra movimientos después de {closed}.")
         latest = connection.execute(
             "SELECT MAX(day) FROM (SELECT MAX(received_on) day FROM purchases UNION ALL "
-            "SELECT MAX(sold_on) FROM sales UNION ALL SELECT MAX(occurred_on) FROM waste)"
+            "SELECT MAX(sold_on) FROM sales UNION ALL SELECT MAX(occurred_on) FROM waste "
+            "UNION ALL SELECT MAX(day) FROM unmet_demand "
+            "UNION ALL SELECT MAX(day) FROM stock_adjustments)"
         ).fetchone()[0]
         if latest and day < latest:
             raise DomainError(f"Registra el movimiento desde {latest}; existe un movimiento posterior.")
@@ -231,7 +237,8 @@ class RestaurantService:
     def _eligible(connection, ingredient_id, day, include_expired=False):
         return connection.execute(
             "SELECT * FROM purchases WHERE ingredient_id=? AND remaining>? AND received_on<=?"
-            + ("" if include_expired else " AND expires_on>=?") + " ORDER BY received_on,id",
+            + ("" if include_expired else " AND expires_on>=?")
+            + " ORDER BY expires_on,received_on,id",
             (ingredient_id, EPSILON, day) if include_expired
             else (ingredient_id, EPSILON, day, day)).fetchall()
 
@@ -344,7 +351,10 @@ class RestaurantService:
             "GROUP BY i.id ORDER BY i.name", (day, day, day, day))
 
     def lots(self):
-        return self._frame("SELECT p.*,i.name,i.unit FROM purchases p JOIN ingredients i "
+        return self._frame("SELECT p.*,i.name,i.unit,CASE WHEN a.purchase_id IS NULL "
+                           "THEN 'Compra' ELSE 'Ajuste de conteo' END origin "
+                           "FROM purchases p LEFT JOIN adjustment_lots a ON a.purchase_id=p.id "
+                           "JOIN ingredients i "
                            "ON i.id=p.ingredient_id ORDER BY received_on,p.id")
 
     def sales(self):
@@ -353,7 +363,9 @@ class RestaurantService:
 
     def purchases(self):
         return self._frame("SELECT p.*,i.name,i.unit,p.quantity*p.unit_cost total FROM purchases p "
-                           "JOIN ingredients i ON i.id=p.ingredient_id ORDER BY p.id DESC")
+                           "JOIN ingredients i ON i.id=p.ingredient_id WHERE NOT EXISTS "
+                           "(SELECT 1 FROM adjustment_lots a WHERE a.purchase_id=p.id) "
+                           "ORDER BY p.id DESC")
 
     def waste(self):
         return self._frame("SELECT w.*,i.name,i.unit FROM waste w JOIN ingredients i "
@@ -365,3 +377,123 @@ class RestaurantService:
             "FROM consumption c JOIN sales s ON s.id=c.sale_id GROUP BY s.sold_on,c.ingredient_id "
             "UNION ALL SELECT date,ingredient_id,quantity,'synthetic_demo' source FROM demo_demand "
             "ORDER BY date,ingredient_id")
+
+    def closures(self):
+        return self._frame("SELECT * FROM day_closures ORDER BY day DESC")
+
+    def close_day(self, day, status="complete"):
+        """Freeze a complete day's observed demand, including explicitly unmet orders."""
+        day = _date(day)
+        if status not in {"complete", "closed"}:
+            raise DomainError("Estado de jornada inválido.")
+        with transaction(self.db_path) as connection:
+            previous = connection.execute(
+                "SELECT status FROM day_closures WHERE day=?", (day,)).fetchone()
+            if previous:
+                if previous[0] != status:
+                    raise DomainError("La jornada ya fue cerrada con otro estado.")
+                return
+            self._chronological(connection, day)
+            activity = connection.execute(
+                "SELECT 1 FROM sales WHERE sold_on=? UNION ALL "
+                "SELECT 1 FROM unmet_demand WHERE day=? LIMIT 1", (day, day)).fetchone()
+            if status == "closed" and activity:
+                raise DomainError("Hay ventas o pedidos no atendidos: marca jornada completa.")
+            connection.execute("INSERT INTO day_closures(day,status) VALUES (?,?)", (day, status))
+            connection.execute(
+                "INSERT INTO daily_demand(day,ingredient_id,quantity) "
+                "SELECT ?,i.id,COALESCE((SELECT SUM(c.quantity) FROM consumption c "
+                "JOIN sales s ON s.id=c.sale_id WHERE c.ingredient_id=i.id AND s.sold_on=?),0) "
+                "+COALESCE((SELECT SUM(u.quantity) FROM unmet_ingredients u "
+                "JOIN unmet_demand e ON e.id=u.event_id WHERE u.ingredient_id=i.id AND e.day=?),0) "
+                "FROM ingredients i WHERE i.active=1", (day, day, day))
+
+    def forecast_history(self):
+        """Only complete operating days and labelled synthetic demo observations."""
+        return self._frame(
+            "SELECT d.day date,d.ingredient_id,d.quantity,'complete_day' source "
+            "FROM daily_demand d JOIN day_closures c ON c.day=d.day WHERE c.status='complete' "
+            "AND NOT EXISTS (SELECT 1 FROM demo_demand x WHERE x.date=d.day "
+            "AND x.ingredient_id=d.ingredient_id) "
+            "UNION ALL SELECT date,ingredient_id,quantity,'synthetic_demo' source FROM demo_demand "
+            "ORDER BY date,ingredient_id")
+
+    def record_unmet(self, dish_id, portions, day, reason, request_key):
+        dish_id = _number(dish_id, "Plato", positive=True, integer=True)
+        portions = _number(portions, "Porciones", positive=True, integer=True)
+        day, reason = _date(day), _text(reason, "Motivo")
+        with transaction(self.db_path) as connection:
+            key, digest, previous = self._request(
+                connection, request_key, "unmet", [dish_id, portions, day, reason])
+            if previous is not None:
+                return previous
+            self._chronological(connection, day)
+            self._get(connection, "dishes", dish_id, active=True)
+            recipe = connection.execute(
+                "SELECT * FROM recipes WHERE dish_id=?", (dish_id,)).fetchall()
+            if not recipe:
+                raise DomainError("Define la receta para estimar los insumos no atendidos.")
+            event = connection.execute(
+                "INSERT INTO unmet_demand(dish_id,portions,day,reason) VALUES (?,?,?,?)",
+                (dish_id, portions, day, reason)).lastrowid
+            connection.executemany("INSERT INTO unmet_ingredients VALUES (?,?,?)",
+                                   [(event, r["ingredient_id"], r["quantity"] * portions)
+                                    for r in recipe])
+            return self._finish(connection, key, "unmet", digest, event)
+
+    def unmet(self):
+        return self._frame("SELECT u.id,d.name,u.portions,u.day date,u.reason FROM unmet_demand u "
+                           "JOIN dishes d ON d.id=u.dish_id ORDER BY u.id DESC")
+
+    def backup(self):
+        """SQLite's backup API includes committed WAL records in a consistent standalone copy."""
+        source = connect(self.db_path)
+        target = sqlite3.connect(":memory:")
+        try:
+            source.backup(target)
+            return target.serialize()
+        finally:
+            target.close()
+            source.close()
+
+    def adjust_stock(self, ingredient_id, counted, day, reason, expires_on, request_key):
+        ingredient_id = _number(ingredient_id, "Insumo", positive=True, integer=True)
+        counted = _number(counted, "Cantidad contada")
+        day, expires_on = _date(day), _date(expires_on)
+        reason = _text(reason, "Motivo del ajuste")
+        if expires_on < day:
+            raise DomainError("El vencimiento no puede ser anterior al conteo.")
+        with transaction(self.db_path) as connection:
+            key, digest, previous = self._request(
+                connection, request_key, "adjustment",
+                [ingredient_id, counted, day, reason, expires_on])
+            if previous is not None:
+                return previous
+            self._chronological(connection, day)
+            ingredient = self._get(connection, "ingredients", ingredient_id)
+            lots = self._eligible(connection, ingredient_id, day)
+            expected = sum(lot["remaining"] for lot in lots)
+            delta = counted - expected
+            result = connection.execute(
+                "INSERT INTO stock_adjustments(ingredient_id,expected,counted,reason,day) "
+                "VALUES (?,?,?,?,?)", (ingredient_id, expected, counted, reason, day)).lastrowid
+            if delta > EPSILON:
+                lot_id = connection.execute(
+                    "INSERT INTO purchases(ingredient_id,quantity,remaining,unit_cost,received_on,"
+                    "expires_on) VALUES (?,?,?,?,?,?)",
+                    (ingredient_id, delta, delta, ingredient["cost"], day, expires_on)).lastrowid
+                connection.execute("INSERT INTO adjustment_lots VALUES (?,?)", (lot_id, result))
+            elif delta < -EPSILON:
+                allocation = self._allocate(connection, lots, -delta)
+                cost = sum(lot["unit_cost"] * amount for lot, amount in allocation)
+                waste = connection.execute(
+                    "INSERT INTO waste(ingredient_id,quantity,cost,reason,occurred_on) "
+                    "VALUES (?,?,?,?,?)", (ingredient_id, -delta, cost,
+                                            f"Ajuste de conteo: {reason}", day)).lastrowid
+                connection.executemany("INSERT INTO waste_allocations VALUES (?,?,?)",
+                                       [(waste, lot["id"], amount) for lot, amount in allocation])
+            return self._finish(connection, key, "adjustment", digest, result)
+
+    def adjustments(self):
+        return self._frame("SELECT a.*,i.name,i.unit FROM stock_adjustments a JOIN ingredients i "
+                           "ON i.id=a.ingredient_id ORDER BY a.id DESC")
