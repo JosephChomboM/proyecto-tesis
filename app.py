@@ -8,6 +8,7 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from restaurante.evaluation import rolling_evaluation
 from restaurante.forecast import forecast_demand, purchase_plan
 from restaurante.seed import seed_demo
 from restaurante.service import RestaurantService, business_today
@@ -64,6 +65,22 @@ LABELS = {
     "estimated_cost": "Costo estimado (S/)",
     "closing_stock": "Saldo previsto",
     "expired_quantity": "Vencimiento previsto",
+    "missing_days": "Días sin datos completos",
+    "order_on": "Pedir a más tardar",
+    "expected": "Stock esperado",
+    "counted": "Stock contado",
+    "day": "Fecha",
+    "status": "Estado",
+    "origin": "Origen",
+    "observations": "Observaciones evaluadas",
+    "strategy": "Estrategia",
+    "mae": "MAE",
+    "rmse": "RMSE",
+    "bias": "Sesgo (previsto − real)",
+    "wape_percent": "WAPE (%)",
+    "mape_percent": "MAPE (%) sin ceros",
+    "mape_excluded_zeros": "Ceros excluidos del MAPE",
+    "is_open": "Día de atención",
 }
 
 
@@ -135,6 +152,16 @@ def item_label(item_id, frame):
 def dashboard(service, today):
     st.title("Tu restaurante, al día")
     st.caption(today.strftime("%d/%m/%Y") + " · Hora de Lima")
+    with st.expander("Guía de inicio: configura tu restaurante", expanded=service.ingredients().empty):
+        st.markdown(
+            "1. **Catálogo → Insumos:** registra la unidad y presentación de compra.\n"
+            "2. **Platos y Recetas:** indica insumos en peso bruto por porción. "
+            "Ejemplo: 200 gramos se registran como 0.200 kg.\n"
+            "3. **Compras:** ingresa existencias y sus vencimientos.\n"
+            "4. **Ventas:** registra platos vendidos y pedidos no atendidos.\n"
+            "5. **Cierre diario:** confirma que terminaste de registrar la jornada.\n"
+            "6. **Plan de compras:** revisa cantidades, fechas y limitaciones."
+        )
     stock = service.stock(today)
     sales = service.sales()
     todays = sales[pd.to_datetime(sales["sold_on"]).dt.date == today] if not sales.empty else sales
@@ -165,7 +192,8 @@ def dashboard(service, today):
             lots = service.lots()
             if not lots.empty:
                 exp = pd.to_datetime(lots["expires_on"]).dt.date
-                near = lots[(lots["remaining"] > 0) & (exp <= today + timedelta(days=3))]
+                near = lots[(lots["remaining"] > 0) & (exp >= today)
+                            & (exp <= today + timedelta(days=3))]
                 if near.empty:
                     st.caption("Sin lotes pendientes que venzan en los próximos tres días.")
                 else:
@@ -229,6 +257,11 @@ def catalog(service):
             st.caption(
                 "Mantén la misma unidad en compras y recetas. Los registros anteriores se conservan al desactivar."
             )
+            st.caption(
+                "Ejemplos: saco de arroz de 50 kg → presentación 50; botella de 900 ml "
+                "con inventario en L → presentación 0.9. La vida útil incluye el día de recepción "
+                "y depende de las condiciones reales de conservación."
+            )
             submitted = st.form_submit_button(
                 "Guardar insumo", type="primary", icon=":material/save:"
             )
@@ -282,6 +315,11 @@ def catalog(service):
             st.caption(
                 "Cantidades por una porción. Deja en cero los insumos que no forman parte del plato."
             )
+            st.info(
+                "Usa peso bruto de almacén: incluye la cantidad necesaria antes de pelar o limpiar. "
+                "No vuelvas a registrar esa pérdida habitual como merma. Este flujo descuenta "
+                "insumos por venta; las preparaciones por lotes aún requieren control separado."
+            )
             with st.form(f"recipe_form_{dish_id}"):
                 values = {}
                 for ingredient in all_ingredients.itertuples():
@@ -320,28 +358,39 @@ def purchases(service, today):
             key="purchase_ingredient",
         )
         ingredient = ingredients.loc[ingredients["id"] == ingredient_id].iloc[0]
+        input_mode = st.radio("Ingresar cantidad como", ["Unidad de inventario", "Presentaciones"])
         with st.form(f"purchase_form_{ingredient_id}"):
             a, b = st.columns(2)
             quantity = a.number_input(
-                f"Cantidad recibida ({ingredient['unit']})", min_value=0.001, value=1.0, step=0.5
+                (f"Cantidad recibida ({ingredient['unit']})" if input_mode == "Unidad de inventario"
+                 else "Número de presentaciones"), min_value=0.001, value=1.0, step=0.5
             )
             cost = b.number_input(
-                "Costo unitario de esta compra (S/)",
+                ("Costo unitario de esta compra (S/)" if input_mode == "Unidad de inventario"
+                 else "Costo por presentación (S/)"),
                 min_value=0.0,
-                value=float(ingredient["cost"]),
+                value=float(ingredient["cost"]) * (
+                    float(ingredient["pack_size"]) if input_mode == "Presentaciones" else 1),
                 step=0.5,
             )
             received = a.date_input("Fecha de recepción", value=today, max_value=today)
             expires = b.date_input(
                 "Fecha de vencimiento",
-                value=today + timedelta(days=int(ingredient["shelf_life_days"])),
+                value=today + timedelta(days=int(ingredient["shelf_life_days"]) - 1),
             )
             st.caption("El lote puede utilizarse hasta su fecha de vencimiento inclusive.")
+            st.caption(
+                f"Cada presentación contiene {ingredient['pack_size']:g} {ingredient['unit']}. "
+                "Revisa la fecha real del producto y su conservación."
+            )
             submitted = st.form_submit_button(
                 "Registrar compra", type="primary", icon=":material/add_shopping_cart:"
             )
         if submitted:
             try:
+                if input_mode == "Presentaciones":
+                    quantity *= float(ingredient["pack_size"])
+                    cost /= float(ingredient["pack_size"])
                 service.receive_purchase(
                     ingredient_id, quantity, cost, received, expires, request_key("purchase")
                 )
@@ -374,7 +423,7 @@ def sales(service, today):
             portions = a.number_input("Porciones vendidas", min_value=1, value=1, step=1)
             sold_on = b.date_input("Fecha de venta", value=today, max_value=today)
             st.caption(
-                f"Precio por porción: S/ {dish['price']:,.2f}. Se utilizan primero los lotes recibidos más antiguos que sigan vigentes."
+                f"Precio por porción: S/ {dish['price']:,.2f}. Se utilizan primero los lotes que vencen antes (PVPS)."
             )
             submitted = st.form_submit_button(
                 "Registrar venta",
@@ -392,6 +441,24 @@ def sales(service, today):
                 st.error(str(error))
     st.subheader("Historial de ventas")
     table(service.sales(), "ventas.csv")
+    if not dishes.empty:
+        with st.expander("Registrar un pedido que no pudiste atender"):
+            st.caption("Solo pedidos reales rechazados por falta de stock. No registra ingresos ni descuenta insumos.")
+            with st.form("unmet_form"):
+                lost_dish = st.selectbox("Plato solicitado", dishes["id"].tolist(),
+                                        format_func=lambda x: item_label(x, dishes))
+                lost_portions = st.number_input("Porciones no atendidas", min_value=1, step=1)
+                lost_day = st.date_input("Fecha del pedido", value=today, max_value=today)
+                reason = st.text_input("Insumo faltante o motivo")
+                save_lost = st.form_submit_button("Guardar pedido no atendido")
+            if save_lost:
+                try:
+                    service.record_unmet(lost_dish, lost_portions, lost_day, reason,
+                                         request_key("unmet"))
+                    complete("Pedido no atendido guardado.", "unmet")
+                except ValueError as error:
+                    st.error(str(error))
+            table(service.unmet(), "pedidos_no_atendidos.csv")
 
 
 def inventory(service, today):
@@ -442,6 +509,60 @@ def inventory(service, today):
             st.error(str(error))
     st.subheader("Historial de mermas")
     table(service.waste(), "mermas.csv")
+    if not ingredients.empty:
+        with st.expander("Corregir stock mediante conteo físico"):
+            st.caption(
+                "Cuenta solo producto utilizable. Una diferencia negativa queda como merma; "
+                "una positiva crea un lote de ajuste al costo de referencia. Conserva su motivo."
+            )
+            with st.form("count_form"):
+                counted_id = st.selectbox("Insumo contado", ingredients["id"].tolist(),
+                                         format_func=lambda x: item_label(x, ingredients))
+                counted = st.number_input("Cantidad utilizable contada (unidad de inventario)",
+                                          min_value=0.0, step=0.1)
+                count_reason = st.text_input("Motivo del ajuste")
+                count_expiry = st.date_input("Vencimiento del excedente encontrado", value=today)
+                confirm = st.checkbox("Confirmo que revisé el conteo físico")
+                count_save = st.form_submit_button("Guardar ajuste de inventario")
+            if count_save:
+                if not confirm:
+                    st.error("Confirma el conteo antes de guardar.")
+                else:
+                    try:
+                        service.adjust_stock(counted_id, counted, today, count_reason,
+                                             count_expiry, request_key("adjustment"))
+                        complete("Conteo registrado con trazabilidad.", "adjustment")
+                    except ValueError as error:
+                        st.error(str(error))
+            table(service.adjustments(), "ajustes.csv")
+
+
+def closing(service, today):
+    st.title("Cierre diario")
+    st.write(
+        "Cierra después de registrar todas las compras, ventas, pedidos no atendidos y mermas. "
+        "Solo las jornadas completas alimentan el pronóstico. Los días pendientes no cuentan como cero."
+    )
+    st.warning(
+        "El cierre bloquea nuevos movimientos de esa fecha y fechas anteriores. "
+        "Registra primero las jornadas antiguas pendientes, en orden cronológico."
+    )
+    with st.form("close_day"):
+        day = st.date_input("Jornada a cerrar", value=today, max_value=today)
+        state = st.radio("Estado de la jornada", ["Atendimos y el registro está completo",
+                                                   "No abrimos el restaurante"])
+        confirm = st.checkbox("He revisado los registros y confirmo el cierre")
+        submitted = st.form_submit_button("Cerrar jornada", type="primary")
+    if submitted:
+        if not confirm:
+            st.error("Revisa y confirma el cierre.")
+        else:
+            try:
+                service.close_day(day, "complete" if state.startswith("Atendimos") else "closed")
+                complete("Jornada cerrada. El historial de planificación se actualizó.")
+            except ValueError as error:
+                st.error(str(error))
+    table(service.closures(), "cierres.csv")
 
 
 def planning(service, today):
@@ -450,8 +571,8 @@ def planning(service, today):
         "Una guía para el próximo servicio, basada en el consumo de insumos de tu restaurante."
     )
     st.caption(
-        "Los días sin ventas registradas entre el primer consumo y hoy se consideran consumo cero. "
-        "Registra cada servicio para que el historial represente tu operación."
+        "Se utilizan jornadas completas y datos de demostración identificados. "
+        "Un día sin registros no se interpreta como demanda cero."
     )
     ingredients = service.ingredients()
     if ingredients.empty:
@@ -467,26 +588,46 @@ def planning(service, today):
         step=0.25,
         help="1 mantiene la reserva configurada en Catálogo; 0 planifica sin reserva adicional.",
     )
-    history = service.demand_history()
+    lead = st.number_input("Plazo de entrega del proveedor (días)", min_value=0, max_value=30, value=0)
+    day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    attention = st.multiselect("Días habituales de atención", day_names, default=day_names)
+    history = service.forecast_history()
     if history.empty:
         st.warning(
-            "Aún no hay historial de consumo. Las sugerencias solo pueden cubrir tu stock de seguridad; registra ventas para mejorar el pronóstico."
+            "Aún no hay historial de jornadas completas. Las sugerencias solo pueden cubrir tu "
+            "stock de seguridad; registra ventas y confirma el Cierre diario."
+        )
+    closures = service.closures()
+    today_closed = not closures.empty and today.isoformat() in closures["day"].tolist()
+    if not today_closed:
+        st.warning(
+            "La jornada de hoy sigue abierta: el stock aún puede cambiar. Este plan es preliminar. "
+            "Ciérrala después del servicio para planificar con el saldo final."
         )
     origin = today + timedelta(days=1)
-    predictions = forecast_demand(history, ingredients, origin, horizon=horizon)
-    plan = purchase_plan(predictions, service.lots(), ingredients, safety_factor=safety)
+    predictions = forecast_demand(history, ingredients, origin, horizon=horizon,
+                                  operating_weekdays=[day_names.index(d) for d in attention])
+    if not predictions.empty and predictions["missing_days"].max() > 0:
+        st.warning("Hay huecos en el historial. Se usan observaciones conocidas; los rezagos del "
+                   "modelo arrastran el último dato disponible. Revisa la vigencia del historial.")
+    plan = purchase_plan(predictions, service.lots(), ingredients, safety_factor=safety,
+                         lead_time_days=int(lead))
     st.subheader("Compra sugerida por día")
     st.caption(
         "Considera vencimientos, consumo previsto, reserva y presentaciones de compra. Las cantidades de días posteriores suponen que recibiste las compras sugeridas antes de cada servicio."
     )
     st.metric("Compra estimada para el periodo", f"S/ {plan['estimated_cost'].sum():,.2f}")
-    summary_columns = ["date", "name", "suggested_quantity", "unit", "estimated_cost"]
+    summary_columns = ["order_on", "date", "name", "suggested_quantity", "unit", "estimated_cost"]
     planned_purchases = plan[plan["suggested_quantity"] > 0][summary_columns]
     if planned_purchases.empty:
-        st.success(
-            "El stock previsto cubre este periodo y la reserva configurada. No se sugieren compras."
-        )
+        if history.empty or predictions["history_days"].eq(0).any():
+            st.warning("No hay información suficiente para asegurar que el stock cubra la demanda.")
+        else:
+            st.info("No se sugieren compras bajo los supuestos y datos disponibles.")
     else:
+        if (planned_purchases["order_on"] < today.isoformat()).any():
+            st.error("Parte del plan exige pedidos en fechas pasadas. Revisa entrega urgente, "
+                     "stock o proveedor: la disponibilidad de esos insumos no está garantizada.")
         table(planned_purchases, "plan_de_compras.csv")
     with st.expander("Cómo se calcula: demanda, stock y vencimientos"):
         detail_columns = summary_columns + [
@@ -526,6 +667,23 @@ def planning(service, today):
         )
         with st.expander("Ver detalle y método"):
             table(named, "pronosticos.csv")
+    with st.expander("Evaluación temporal del pronóstico"):
+        st.caption(
+            "Compara el método automático con promedio y referencia semanal sobre tres bloques "
+            "pasados de siete días. Exige 56 días de entrenamiento por insumo. "
+            "Las métricas se calculan por insumo; no se mezclan kg y litros. "
+            "MAPE excluye ceros y WAPE queda vacío si la demanda total es cero. "
+            "En demostración, los resultados describen únicamente datos sintéticos."
+        )
+        if st.button("Evaluar con historial disponible"):
+            with st.spinner("Comparando pronósticos sin utilizar datos futuros..."):
+                summary, detail = rolling_evaluation(history, ingredients)
+            if summary.empty:
+                st.info("Todavía no hay suficientes jornadas completas para evaluar.")
+            else:
+                table(summary.merge(ingredients[["id", "name", "unit"]],
+                                    left_on="ingredient_id", right_on="id"), "evaluacion.csv")
+                table(detail, "predicciones_evaluadas.csv")
 
 
 def main():
@@ -574,7 +732,8 @@ def main():
         st.divider()
         page = st.radio(
             "Tu operación",
-            ["Resumen", "Catálogo", "Compras", "Ventas", "Stock y mermas", "Plan de compras"],
+            ["Resumen", "Catálogo", "Compras", "Ventas", "Stock y mermas", "Cierre diario",
+             "Plan de compras"],
             key="page",
         )
         st.divider()
@@ -585,6 +744,10 @@ def main():
         data_dir / ("demo.sqlite3" if mode == "Demostración" else "restaurant.sqlite3")
     )
     today = business_today()
+    with st.sidebar:
+        st.download_button("Descargar respaldo completo", data=service.backup(),
+                           file_name=f"respaldo-{service.db_path.stem}-{today}.sqlite3",
+                           mime="application/vnd.sqlite3")
     if mode == "Demostración":
         seed_demo(service, today=today)
         st.warning(
@@ -601,6 +764,7 @@ def main():
             "Compras": purchases,
             "Ventas": sales,
             "Stock y mermas": inventory,
+            "Cierre diario": closing,
             "Plan de compras": planning,
         }
         handlers[page](service, today)

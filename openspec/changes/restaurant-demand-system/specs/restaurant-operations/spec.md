@@ -18,12 +18,12 @@ The system MUST receive positive purchases as dated lots and record deliberate o
 - THEN it cannot satisfy demand and expiration waste is auditable.
 
 ### Requirement: OPS-2 Atomic sales
-The system MUST consume recipe quantities from eligible lots FIFO, atomically across all sale lines, preserving prices and consumption history.
+The system MUST consume recipe quantities from eligible lots PVPS (earliest expiry, then receipt date and lot ID), atomically across all sale lines, preserving prices and consumption history.
 
-#### Scenario: FIFO sale
+#### Scenario: PVPS (earliest expiry, then receipt date and lot ID) sale
 - GIVEN two valid lots received on different dates
 - WHEN a recipe-based sale consumes more than the older lot contains
-- THEN the older lot is exhausted before the newer lot and the sale survives reopening.
+- THEN the earliest-expiring lot is exhausted before later-expiring lots and the sale survives reopening.
 
 #### Scenario: Insufficient ingredient
 - GIVEN a sale requiring multiple ingredients
@@ -42,3 +42,6 @@ The system MUST prevent retrying one request from executing its purchase, sale o
 - GIVEN a completed request key
 - WHEN a different payload reuses that key
 - THEN the request is rejected without changing stock or history.
+
+### Amendment: complete-day demand and inventory corrections
+Only confirmed complete operating days feed operational forecasts. Missing days remain unknown; explicit non-opening days are separate. Closures freeze recipes consumed and unmet demand, prohibit subsequent movements through the closed date, and are idempotent. Unmet orders snapshot recipe requirements without stock consumption or revenue. Count corrections are audited; excess stock uses labelled adjustment lots, not purchase expenditure.

@@ -116,3 +116,45 @@ def test_catalog_can_create_recipe_and_toggle_active(app, tmp_path):
     assert service.dishes().empty
     assert len(service.dishes(include_inactive=True)) == 1
     assert not service.recipe(dish_id).empty
+
+
+def test_presentation_purchase_converts_quantity_and_unit_cost(app, tmp_path):
+    service = RestaurantService(tmp_path / "restaurant.sqlite3")
+    service.save_ingredient("Arroz", "kg", 4, 50, 90, 1)
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    navigate(app, "Compras")
+    by_label(app.radio, "Ingresar cantidad como").set_value("Presentaciones").run()
+    by_label(app.number_input, "Número de presentaciones").set_value(2.0)
+    by_label(app.number_input, "Costo por presentación (S/)").set_value(180.0)
+    by_label(app.button, "Registrar compra").click().run()
+    assert not app.exception
+    assert service.purchases().quantity.iloc[0] == 100
+    assert service.purchases().unit_cost.iloc[0] == 3.6
+    assert service.purchases().total.iloc[0] == 360
+
+
+def test_closure_requires_confirmation_and_enables_complete_history(app, tmp_path):
+    service = RestaurantService(tmp_path / "restaurant.sqlite3")
+    service.save_ingredient("Papa", "kg", 3, 5, 7, 0)
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    navigate(app, "Cierre diario")
+    by_label(app.button, "Cerrar jornada").click().run()
+    assert service.closures().empty
+    by_label(app.checkbox, "He revisado los registros y confirmo el cierre").check()
+    by_label(app.button, "Cerrar jornada").click().run()
+    assert not app.exception
+    assert len(service.closures()) == 1
+    assert service.forecast_history().quantity.tolist() == [0]
+    navigate(app, "Plan de compras")
+    assert not app.exception
+
+
+def test_demo_evaluation_renders_metrics(app):
+    app.run()
+    by_label(app.button, "Explorar demostración").click().run()
+    navigate(app, "Plan de compras")
+    by_label(app.button, "Evaluar con historial disponible").click().run(timeout=60)
+    assert not app.exception
+    assert any("WAPE (%)" in frame.value.columns for frame in app.dataframe)
