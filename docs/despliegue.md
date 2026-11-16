@@ -1,5 +1,10 @@
 # Demostración gratuita en Render y GitHub Actions
 
+Aplicación: https://mise-restaurante-tesis.onrender.com/
+
+Servicio: `mise-restaurante-tesis` en el espacio `SeminarioTesis`, plan Free y sin disco.
+Pipeline: https://github.com/JosephChomboM/proyecto-tesis/actions/workflows/ci.yml
+
 ## Configuración reproducible
 
 - Rama publicada: `main`. Los cambios se validan también en ramas y PR.

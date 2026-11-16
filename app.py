@@ -753,6 +753,8 @@ def main():
                         st.session_state["mode"] = "Mi restaurante"
                         st.rerun()
         st.caption(
+            "Demostración gratuita · Sesiones de prueba independientes · Moneda: soles (S/)"
+            if public_demo else
             "Datos separados por espacio · Uso local para un administrador · Moneda: soles (S/)"
         )
         return

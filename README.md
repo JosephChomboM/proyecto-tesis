@@ -8,6 +8,11 @@ El despliegue gratuito de Render usa **demostraciones temporales separadas por s
 permite explorar y registrar pruebas, pero no conserva inventario de producción.
 El pipeline de GitHub Actions y la configuración están en [despliegue.md](docs/despliegue.md).
 
+**Probar en línea:** https://mise-restaurante-tesis.onrender.com/
+
+El servicio gratuito puede tardar un minuto o más en reactivarse después de estar inactivo.
+Los cambios de `main` se publican automáticamente después de pasar las pruebas.
+
 En Windows (PowerShell), desde la carpeta del proyecto:
 
 ```powershell
