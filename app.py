@@ -8,6 +8,7 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from restaurante.access import require_access
 from restaurante.evaluation import rolling_evaluation
 from restaurante.forecast import forecast_demand, purchase_plan
 from restaurante.presentation import brand, context_bar, load_styles, note, page_header, welcome
@@ -714,6 +715,8 @@ def planning(service, today):
 
 
 def main():
+    if not require_access():
+        return
     if "mode" not in st.session_state:
         brand()
         welcome()
@@ -752,7 +755,7 @@ def main():
         if mode != st.session_state["mode"]:
             st.session_state["mode"] = mode
             for key in list(st.session_state):
-                if key not in {"mode", "workspace_mode"}:
+                if key not in {"mode", "workspace_mode", "access_grant"}:
                     del st.session_state[key]
             st.rerun()
         st.divider()
