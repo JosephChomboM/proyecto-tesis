@@ -10,7 +10,14 @@ import streamlit as st
 from .presentation import brand, page_header
 
 
+def is_public_demo():
+    return os.environ.get("RESTAURANTE_PUBLIC_DEMO", "").lower() == "true"
+
+
 def require_access():
+    # This flag only exposes the isolated synthetic sandbox, never the own-restaurant files.
+    if is_public_demo():
+        return True
     expected = os.environ.get("RESTAURANTE_ACCESS_PASSWORD", "")
     hosted = os.environ.get("RENDER", "").lower() == "true"
     if not expected and not hosted:

@@ -5,21 +5,17 @@ services:
     repo: https://github.com/JosephChomboM/proyecto-tesis
     branch: main
     region: oregon
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     buildCommand: python -m pip install --require-hashes -r requirements.lock && python -m pip install --no-deps .
     startCommand: python scripts/start.py
     healthCheckPath: /_stcore/health
     autoDeployTrigger: "off"
-    disk:
-      name: restaurante-datos
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: RESTAURANTE_DATA_DIR
-        value: /var/data/restaurante
-      - key: RESTAURANTE_ACCESS_PASSWORD
-        sync: false
+        value: /tmp/mise-restaurante
+      - key: RESTAURANTE_PUBLIC_DEMO
+        value: "true"
       - key: OPENBLAS_NUM_THREADS
         value: "1"
       - key: OMP_NUM_THREADS

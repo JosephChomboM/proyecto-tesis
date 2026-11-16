@@ -4,6 +4,10 @@ Sistema local para administrar insumos, recetas, compras, ventas, stock y mermas
 
 ## Iniciar
 
+El despliegue gratuito de Render usa **demostraciones temporales separadas por sesión**:
+permite explorar y registrar pruebas, pero no conserva inventario de producción.
+El pipeline de GitHub Actions y la configuración están en [despliegue.md](docs/despliegue.md).
+
 En Windows (PowerShell), desde la carpeta del proyecto:
 
 ```powershell

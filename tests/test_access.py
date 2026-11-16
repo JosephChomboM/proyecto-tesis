@@ -52,3 +52,21 @@ def test_repeated_invalid_access_is_temporarily_blocked(tmp_path, monkeypatch):
     assert any("Espera un minuto" in item.value for item in app.warning)
     assert not app.button
     assert not list(tmp_path.glob("*.sqlite3"))
+
+
+def test_public_demo_is_isolated_and_does_not_expose_own_restaurant(tmp_path, monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RESTAURANTE_PUBLIC_DEMO", "true")
+    monkeypatch.setenv("RESTAURANTE_DATA_DIR", str(tmp_path))
+    first = AppTest.from_file(str(APP), default_timeout=30).run()
+    assert not first.exception
+    assert all(button.label != "Comenzar mi restaurante" for button in first.button)
+    label(first.button, "Explorar demostración").click().run()
+    assert label(first.selectbox, "Espacio de trabajo").options == ["Demostración"]
+    second = AppTest.from_file(str(APP), default_timeout=30).run()
+    label(second.button, "Explorar demostración").click().run()
+    assert first.session_state["demo_directory"].name != second.session_state["demo_directory"].name
+    assert not list(tmp_path.glob("*.sqlite3"))
+    first.session_state["mode"] = "Mi restaurante"
+    first.run()
+    assert first.session_state["mode"] == "Demostración"

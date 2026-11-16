@@ -1,6 +1,7 @@
 """Local restaurant administration, backed by durable domain services."""
 
 import os
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -8,7 +9,7 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
-from restaurante.access import require_access
+from restaurante.access import is_public_demo, require_access
 from restaurante.evaluation import rolling_evaluation
 from restaurante.forecast import forecast_demand, purchase_plan
 from restaurante.presentation import brand, context_bar, load_styles, note, page_header, welcome
@@ -717,6 +718,9 @@ def planning(service, today):
 def main():
     if not require_access():
         return
+    public_demo = is_public_demo()
+    if public_demo and st.session_state.get("mode") not in {None, "Demostración"}:
+        st.session_state["mode"] = "Demostración"
     if "mode" not in st.session_state:
         brand()
         welcome()
@@ -733,13 +737,21 @@ def main():
                     st.rerun()
         with right:
             with st.container(border=True, key="welcome_own"):
-                st.caption("PARA TU OPERACIÓN")
-                st.subheader("Organiza tu restaurante")
-                st.write("Empieza con tus propios insumos y recetas. Una guía te acompaña "
-                         "desde la primera compra.")
-                if st.button("Comenzar mi restaurante", icon=":material/storefront:", width="stretch"):
-                    st.session_state["mode"] = "Mi restaurante"
-                    st.rerun()
+                if public_demo:
+                    st.caption("ESPACIO DE PRUEBA")
+                    st.subheader("Prueba con tranquilidad")
+                    st.write("Cada sesión tiene su propio restaurante de ejemplo. Puedes registrar "
+                             "compras y ventas sin cambiar los datos de otros visitantes.")
+                    st.info("Demostración gratuita: los registros son temporales. "
+                            "Descarga los resultados que necesites conservar.")
+                else:
+                    st.caption("PARA TU OPERACIÓN")
+                    st.subheader("Organiza tu restaurante")
+                    st.write("Empieza con tus propios insumos y recetas. Una guía te acompaña "
+                             "desde la primera compra.")
+                    if st.button("Comenzar mi restaurante", icon=":material/storefront:", width="stretch"):
+                        st.session_state["mode"] = "Mi restaurante"
+                        st.rerun()
         st.caption(
             "Datos separados por espacio · Uso local para un administrador · Moneda: soles (S/)"
         )
@@ -748,7 +760,7 @@ def main():
         brand()
         mode = st.selectbox(
             "Espacio de trabajo",
-            ["Demostración", "Mi restaurante"],
+            ["Demostración"] if public_demo else ["Demostración", "Mi restaurante"],
             index=0 if st.session_state["mode"] == "Demostración" else 1,
             key="workspace_mode",
         )
@@ -770,7 +782,12 @@ def main():
             st.caption("Empieza en Catálogo, registra compras y luego ventas. Al terminar el servicio, "
                        "confirma el Cierre diario y revisa tu Plan de compras.")
             st.caption("La demostración y tu restaurante guardan datos por separado.")
-    data_dir = Path(os.environ.get("RESTAURANTE_DATA_DIR", Path(__file__).parent / "data"))
+    if public_demo:
+        if "demo_directory" not in st.session_state:
+            st.session_state["demo_directory"] = tempfile.TemporaryDirectory(prefix="mise-demo-")
+        data_dir = Path(st.session_state["demo_directory"].name)
+    else:
+        data_dir = Path(os.environ.get("RESTAURANTE_DATA_DIR", Path(__file__).parent / "data"))
     data_dir.mkdir(parents=True, exist_ok=True)
     service = RestaurantService(
         data_dir / ("demo.sqlite3" if mode == "Demostración" else "restaurant.sqlite3")
@@ -783,6 +800,10 @@ def main():
     if mode == "Demostración":
         seed_demo(service, today=today)
     context_bar(mode, today.strftime("%d/%m/%Y"))
+    if public_demo:
+        st.info("Demostración pública · Tu sesión usa datos de ejemplo separados de otros visitantes. "
+                "No ingreses datos reales: los cambios pueden perderse al cerrar la sesión o reiniciar "
+                "el servidor. Descarga tus resultados antes de salir.")
     if "flash" in st.session_state:
         st.success(st.session_state.pop("flash"))
     if page == "Catálogo":
