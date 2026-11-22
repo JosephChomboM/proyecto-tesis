@@ -13,6 +13,7 @@ from restaurante.access import is_public_demo, require_access
 from restaurante.evaluation import rolling_evaluation
 from restaurante.forecast import forecast_demand, purchase_plan
 from restaurante.presentation import brand, context_bar, load_styles, note, page_header, welcome
+from restaurante.reports import operation_report, printable_report
 from restaurante.seed import seed_demo
 from restaurante.service import RestaurantService, business_today
 
@@ -71,6 +72,8 @@ LABELS = {
     "mape_percent": "MAPE (%) sin ceros",
     "mape_excluded_zeros": "Ceros excluidos del MAPE",
     "is_open": "Día de atención",
+    "created_at": "Fecha de cierre (UTC)",
+    "adjustment_id": "Ajuste",
 }
 
 
@@ -80,6 +83,9 @@ def table(frame, filename=None):
         st.info("Aún no hay registros para mostrar.")
         return
     display = frame.rename(columns=LABELS)
+    if "Estado" in display:
+        display["Estado"] = display["Estado"].replace(
+            {"complete": "Jornada completa", "closed": "No hubo atención"})
     monetary = {"cost", "unit_cost", "price", "total", "estimated_cost"}
     quantities = {
         "quantity",
@@ -210,6 +216,8 @@ def dashboard(service, today):
                     st.caption("Tus lotes aparecerán al registrar la primera compra.")
     st.subheader("Últimas ventas")
     table(sales.head(10), "ventas.csv")
+    st.button("Ver reportes por fecha", icon=":material/assessment:",
+              on_click=go_to, args=("Reportes",))
 
 
 def catalog(service):
@@ -385,9 +393,9 @@ def purchases(service, today):
                     float(ingredient["pack_size"]) if input_mode == "Presentaciones" else 1),
                 step=0.5,
             )
-            received = a.date_input("Fecha de recepción", value=today, max_value=today)
+            received = a.date_input("Fecha de recepción", value=today, max_value=today, format="DD/MM/YYYY")
             expires = b.date_input(
-                "Fecha de vencimiento",
+                "Fecha de vencimiento", format="DD/MM/YYYY",
                 value=today + timedelta(days=int(ingredient["shelf_life_days"]) - 1),
             )
             st.caption("El lote puede utilizarse hasta su fecha de vencimiento inclusive.")
@@ -434,7 +442,7 @@ def sales(service, today):
             st.subheader("Detalle de la venta")
             a, b = st.columns(2)
             portions = a.number_input("Porciones vendidas", min_value=1, value=1, step=1)
-            sold_on = b.date_input("Fecha de venta", value=today, max_value=today)
+            sold_on = b.date_input("Fecha de venta", value=today, max_value=today, format="DD/MM/YYYY")
             st.caption(
                 f"Precio por porción: S/ {dish['price']:,.2f}. Se utilizan primero los lotes que vencen antes (PVPS)."
             )
@@ -461,7 +469,7 @@ def sales(service, today):
                 lost_dish = st.selectbox("Plato solicitado", dishes["id"].tolist(),
                                         format_func=lambda x: item_label(x, dishes))
                 lost_portions = st.number_input("Porciones no atendidas", min_value=1, step=1)
-                lost_day = st.date_input("Fecha del pedido", value=today, max_value=today)
+                lost_day = st.date_input("Fecha del pedido", value=today, max_value=today, format="DD/MM/YYYY")
                 reason = st.text_input("Insumo faltante o motivo")
                 save_lost = st.form_submit_button("Guardar pedido no atendido")
             if save_lost:
@@ -505,7 +513,7 @@ def inventory(service, today):
             quantity = a.number_input(
                 f"Cantidad perdida ({row['unit']})", min_value=0.001, value=0.1, step=0.1
             )
-            occurred = b.date_input("Fecha de merma", value=today, max_value=today)
+            occurred = b.date_input("Fecha de merma", value=today, max_value=today, format="DD/MM/YYYY")
             reason = st.text_input(
                 "Motivo de la merma", placeholder="Ej.: deterioro o caída durante la preparación"
             )
@@ -542,7 +550,7 @@ def inventory(service, today):
                 counted = st.number_input("Cantidad utilizable contada (unidad de inventario)",
                                           min_value=0.0, step=0.1)
                 count_reason = st.text_input("Motivo del ajuste")
-                count_expiry = st.date_input("Vencimiento del excedente encontrado", value=today)
+                count_expiry = st.date_input("Vencimiento del excedente encontrado", value=today, format="DD/MM/YYYY")
                 confirm = st.checkbox("Confirmo que revisé el conteo físico")
                 count_save = st.form_submit_button("Guardar ajuste de inventario")
             if count_save:
@@ -577,7 +585,7 @@ def closing(service, today):
     )
     with st.form("close_day"):
         st.subheader("Confirmación de jornada")
-        day = st.date_input("Jornada a cerrar", value=today, max_value=today)
+        day = st.date_input("Jornada a cerrar", value=today, max_value=today, format="DD/MM/YYYY")
         state = st.radio("Estado de la jornada", ["Atendimos y el registro está completo",
                                                    "No abrimos el restaurante"])
         confirm = st.checkbox("He revisado los registros y confirmo el cierre")
@@ -657,7 +665,13 @@ def planning(service, today):
         if (planned_purchases["order_on"] < today.isoformat()).any():
             st.error("Parte del plan exige pedidos en fechas pasadas. Revisa entrega urgente, "
                      "stock o proveedor: la disponibilidad de esos insumos no está garantizada.")
-        table(planned_purchases, "plan_de_compras.csv")
+        selected_day = st.selectbox("Mostrar compras para", ["Todo el periodo"]
+                                    + sorted(planned_purchases["date"].unique().tolist()))
+        shown = planned_purchases if selected_day == "Todo el periodo" else \
+            planned_purchases[planned_purchases["date"] == selected_day]
+        st.caption("Cada fila indica cuánto recibir ese día. No sumes kg y litros entre insumos. "
+                   "La descarga respeta el filtro seleccionado.")
+        table(shown, "plan_de_compras.csv")
     with st.expander("Cómo se calcula: demanda, stock y vencimientos"):
         detail_columns = summary_columns + [
             "demand",
@@ -690,7 +704,7 @@ def planning(service, today):
             series,
             x="date",
             y="predicted",
-            color="#246146",
+            color="#087f8c",
             x_label="Fecha",
             y_label=f"Demanda ({ingredients.loc[ingredients['id'] == ingredient_id, 'unit'].iloc[0]})",
         )
@@ -713,6 +727,78 @@ def planning(service, today):
                 table(summary.merge(ingredients[["id", "name", "unit"]],
                                     left_on="ingredient_id", right_on="id"), "evaluacion.csv")
                 table(detail, "predicciones_evaluadas.csv")
+
+
+def reports(service, today):
+    page_header("RESULTADOS DE TU OPERACIÓN", "Reportes claros, decisiones informadas",
+                "Elige un periodo y revisa lo registrado en ventas, compras y pérdidas.")
+    with st.container(border=True):
+        a, b = st.columns(2)
+        start = a.date_input("Desde", value=today - timedelta(days=6), max_value=today, format="DD/MM/YYYY")
+        end = b.date_input("Hasta", value=today, max_value=today, format="DD/MM/YYYY")
+    if start > end:
+        st.error("La fecha final debe ser igual o posterior a la inicial.")
+        return
+    if (end - start).days > 730:
+        st.info("Selecciona un periodo de hasta 731 días para consultar el reporte.")
+        return
+    report = operation_report(service, start, end)
+    st.caption(f"Periodo: {start:%d/%m/%Y} al {end:%d/%m/%Y} · Importes en soles (S/)")
+    a, b, c = st.columns(3)
+    a.metric("Ventas registradas", f"S/ {report['sales_amount']:,.2f}")
+    b.metric("Compras recibidas", f"S/ {report['purchase_amount']:,.2f}")
+    c.metric("Costo de mermas", f"S/ {report['waste_amount']:,.2f}")
+    note("Cómo interpretar estos importes",
+         "Las ventas son ingresos registrados y las compras son recepciones valorizadas. "
+         "No son una utilidad ni un balance. Las mermas incluyen ajustes de conteo con su motivo.")
+    a, b, c = st.columns(3)
+    a.metric("Porciones vendidas", report["sold_portions"])
+    b.metric("Porciones no atendidas", report["unmet_portions"])
+    c.metric("Jornadas completas", report["complete_days"])
+    if report["complete_days"] == 0:
+        st.warning("No hay jornadas confirmadas completas en este periodo. Los totales reflejan "
+                   "lo registrado, pero podrían estar incompletos. Revisa el Cierre diario.")
+    if st.session_state["mode"] == "Demostración":
+        st.info("El historial sintético sirve para pronosticar; no representa ventas operativas. "
+                "Aquí verás las compras de ejemplo y las operaciones que registres en esta sesión.")
+    st.download_button("Descargar reporte para imprimir", printable_report(
+        report, start, end, st.session_state["mode"], LABELS).encode("utf-8"),
+        file_name=f"reporte-mise-{start}-{end}.html", mime="text/html",
+        icon=":material/print:")
+    st.caption("Abre el archivo descargado en tu navegador y usa Imprimir → Guardar como PDF.")
+    overview, movements, glossary = st.tabs(["Resumen del periodo", "Detalle y descargas", "Qué significa cada dato"])
+    with overview:
+        st.subheader("Ventas registradas por día")
+        if report["sales"].empty:
+            st.info("Todavía no hay ventas registradas en este periodo. Registra una venta "
+                    "en Ventas para consultar su evolución aquí.")
+        else:
+            st.bar_chart(report["daily"], x="date", y="total", color="#087f8c",
+                         x_label="Fecha", y_label="Ventas registradas (S/)")
+            st.caption("Un día sin registros aparece con S/ 0; no confirma que el restaurante no atendiera.")
+        st.subheader("Mermas por insumo")
+        waste = report["waste"]
+        if waste.empty:
+            st.info("No se registraron mermas en el periodo seleccionado.")
+        else:
+            grouped = waste.groupby(["name", "unit"], as_index=False)[["quantity", "cost"]].sum()
+            table(grouped.sort_values("cost", ascending=False), "mermas_por_insumo.csv")
+    with movements:
+        category = st.selectbox("Qué deseas revisar", ["Ventas", "Compras", "Mermas", "Pedidos no atendidos", "Cierres"])
+        key = {"Ventas": "sales", "Compras": "purchases", "Mermas": "waste",
+               "Pedidos no atendidos": "unmet", "Cierres": "closures"}[category]
+        st.subheader(category)
+        table(report[key], f"reporte_{key}_{start}_{end}.csv")
+    with glossary:
+        st.markdown(
+            "- **Ventas registradas:** suma de los precios guardados al vender.\n"
+            "- **Compras recibidas:** cantidad recibida por costo unitario; excluye excedentes de conteo.\n"
+            "- **Costo de mermas:** valor del inventario perdido según sus lotes.\n"
+            "- **Pedidos no atendidos:** solicitudes reales que no se pudieron servir; no generan ingresos.\n"
+            "- **Jornadas completas:** días revisados y confirmados en Cierre diario.\n"
+            "- **Pronóstico:** consumo estimado futuro; se consulta en Plan de compras.\n"
+            "- **Inventario actual:** disponible hoy; se consulta en Stock y mermas y no es un saldo histórico."
+        )
 
 
 def main():
@@ -776,7 +862,7 @@ def main():
         page = st.radio(
             "Tu operación",
             ["Resumen", "Catálogo", "Compras", "Ventas", "Stock y mermas", "Cierre diario",
-             "Plan de compras"],
+             "Plan de compras", "Reportes"],
             key="page",
         )
         st.divider()
@@ -818,6 +904,7 @@ def main():
             "Stock y mermas": inventory,
             "Cierre diario": closing,
             "Plan de compras": planning,
+            "Reportes": reports,
         }
         handlers[page](service, today)
 

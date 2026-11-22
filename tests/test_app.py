@@ -180,3 +180,13 @@ def test_inventory_search_filters_visible_table(app, tmp_path):
     assert not app.exception
     stock_table = next(frame.value for frame in app.dataframe if "Disponible" in frame.value.columns)
     assert stock_table["Nombre"].tolist() == ["Arroz"]
+
+
+def test_report_page_has_period_metrics_and_clear_empty_state(app):
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    by_label(app.button, "Ver reportes por fecha").click().run()
+    assert not app.exception
+    assert by_label(app.radio, "Tu operación").value == "Reportes"
+    assert by_label(app.metric, "Ventas registradas").value == "S/ 0.00"
+    assert any("podrían estar incompletos" in message.value for message in app.warning)
