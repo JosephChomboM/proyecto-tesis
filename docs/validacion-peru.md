@@ -7,6 +7,11 @@ compras por unidad o presentación, venta por pedido, PVPS, mermas, ajustes por 
 registro de pedidos no atendidos, cierre de jornadas y planificación de recepciones con fechas
 de pedido. Pronóstico Random Forest y referencias básicas, evaluación temporal exportable.
 
+El módulo **Investigación** amplía estas capacidades con un generador de tres perfiles,
+comparación local RF/XGBoost/LSTM/ingenuo, simulación pareada y cálculo de Aiken/SUS.
+Su protocolo y límites están en [experimentos.md](experimentos.md). La evaluación operativa
+descrita más abajo conserva su alcance propio; no equivale al experimento completo.
+
 La vida útil no certifica inocuidad. Debe definirse según producto, conservación, apertura y
 procedimientos del negocio. El software no controla temperaturas ni cadena de frío.
 
@@ -56,10 +61,10 @@ demostración son sintéticos. No agregar MAE en kg y litros en un único indica
 
 | Componente | Evidencia que falta |
 |---|---|
-| Datos 2024–2025 y tres perfiles | Generador calibrado, manifiesto de fuentes, parámetros, semillas y juicio de expertos |
-| Comparación de algoritmos | XGBoost/LSTM, ajuste temporal, conjunto final de prueba reservado y variables externas disponibles al predecir |
-| Impacto de compras | Simulación de políticas con idéntica demanda, inventario inicial, caducidad, entrega y precios; repeticiones con distintas semillas |
-| Inferencia estadística | Efectos e intervalos, dependencia temporal y corrección por comparaciones múltiples |
+| Datos 2024–2025 y tres perfiles | Calibrar y validar los parámetros editables del generador; completar recetas y fuentes; juicio de expertos |
+| Comparación de algoritmos | Ejecutar los cuatro modelos disponibles con el protocolo definitivo y documentar la selección temporal |
+| Impacto de compras | Validar la política empírica supuesta y ejecutar las réplicas definitivas del simulador implementado |
+| Inferencia estadística | Revisar supuestos de DM aproximado/Wilcoxon/bootstrap, potencia y corrección por comparaciones múltiples |
 | Uso real | Participantes, consentimiento, tareas cronometradas, errores, entrevistas y SUS |
 | Operación de cocina | Preparación por lotes, rendimientos, sobrantes y anulaciones auditadas |
 

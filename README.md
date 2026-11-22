@@ -2,6 +2,12 @@
 
 Sistema local para administrar insumos, recetas, compras, ventas, stock y mermas, con pronósticos de consumo y sugerencias de compra. Implementa el sistema operativo que acompaña la investigación de demanda en restaurantes MYPE de Lima.
 
+Incluye **Investigación**, un espacio separado para generar datasets sencillos, comparar
+ingenuo estacional, Random Forest, XGBoost y LSTM, simular compras y calcular Aiken/SUS
+con respuestas humanas. Consulta [la guía de experimentos](docs/experimentos.md) para probarlo.
+Los parámetros iniciales son supuestos de ejemplo, no datos calibrados o validados de Lima.
+El entrenamiento completo es local; Render gratuito permite generar datos y consultar resultados.
+
 ## Iniciar
 
 El despliegue gratuito de Render usa **demostraciones temporales separadas por sesión**:
@@ -53,6 +59,8 @@ En **Plan de compras** puedes filtrar las cantidades a recibir por día; su CSV 
 2. En **Platos**, registra nombre y precio. En **Recetas**, indica cuánto insumo necesita una porción de cada plato, usando la misma unidad del inventario.
 3. En **Compras**, registra lo recibido y su vencimiento. Puedes ingresar unidades de inventario (5 kg) o presentaciones (2 sacos de 50 kg). En ese caso ingresa el costo por saco: el sistema convierte cantidad y costo unitario.
 4. En **Ventas**, elige el plato y sus porciones. La receta descuenta el stock automáticamente. Si falta un insumo, la venta completa se rechaza sin descontar existencias.
+   También puedes abrir **Registrar el resumen del día por plato** para ingresar todas las
+   porciones diarias juntas. Añade solo ventas aún no registradas; el resumen no reemplaza anteriores.
 5. Consulta **Stock y mermas** para registrar pérdidas y procesar saldos vencidos. Los lotes vencidos nunca están disponibles para vender; el lote sigue vigente durante su fecha de vencimiento.
 6. En **Ventas**, registra también los pedidos reales rechazados por falta de stock. No generan ingresos ni descuentos de inventario, pero completan la demanda observada.
 7. En **Cierre diario**, confirma que terminaste de registrar la jornada o indica que no abriste. El cierre bloquea movimientos de esa fecha y anteriores: registra las jornadas pendientes primero, en orden.

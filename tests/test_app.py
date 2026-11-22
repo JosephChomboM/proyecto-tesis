@@ -190,3 +190,37 @@ def test_report_page_has_period_metrics_and_clear_empty_state(app):
     assert by_label(app.radio, "Tu operación").value == "Reportes"
     assert by_label(app.metric, "Ventas registradas").value == "S/ 0.00"
     assert any("podrían estar incompletos" in message.value for message in app.warning)
+
+
+def test_research_generates_separate_dataset_and_preserves_inventory(app, tmp_path):
+    app.run()
+    by_label(app.button, "Explorar demostración").click().run()
+    service = RestaurantService(tmp_path / "demo.sqlite3")
+    before = service.lots().copy()
+    navigate(app, "Investigación")
+    by_label(app.button, "Generar dataset sintético").click().run(timeout=60)
+    assert not app.exception
+    assert by_label(app.metric, "Días por serie").value == "731"
+    assert any(button.label == "Descargar dataset y configuración (ZIP)" for button in app.get("download_button"))
+    import pandas as pd
+    pd.testing.assert_frame_equal(before, service.lots())
+
+
+def test_public_research_does_not_offer_training(app, monkeypatch):
+    monkeypatch.setenv("RESTAURANTE_PUBLIC_DEMO", "true")
+    app.run()
+    by_label(app.button, "Explorar demostración").click().run()
+    navigate(app, "Investigación")
+    assert not any(button.label == "Entrenar, evaluar y simular compras" for button in app.button)
+    assert any("Render gratuito" in message.value for message in app.info)
+
+
+def test_research_example_reports_open_without_training(app):
+    app.run()
+    by_label(app.button, "Preparar datos para la tesis").click().run()
+    assert not app.exception
+    assert by_label(app.radio, "Tu operación").value == "Investigación"
+    by_label(app.button, "Ver experimento de ejemplo").click().run()
+    assert not app.exception
+    assert not app.error
+    assert by_label(app.metric, "Merma con pronóstico")

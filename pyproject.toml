@@ -9,17 +9,18 @@ description = "Local restaurant operations and ingredient purchasing forecasts"
 requires-python = ">=3.11"
 dependencies = [
   "streamlit>=1.42,<2", "pandas>=2.2,<4", "numpy>=2,<3",
-  "scikit-learn>=1.5,<2", "plotly>=6,<8",
+  "scikit-learn>=1.5,<2", "plotly>=6,<8", "scipy>=1.14,<2",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
+research = ["xgboost>=2.1,<4", "tensorflow>=2.18,<3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-restaurante = ["*.css"]
+restaurante = ["*.css", "research/*.zip"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

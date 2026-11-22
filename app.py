@@ -14,6 +14,7 @@ from restaurante.evaluation import rolling_evaluation
 from restaurante.forecast import forecast_demand, purchase_plan
 from restaurante.presentation import brand, context_bar, load_styles, note, page_header, welcome
 from restaurante.reports import operation_report, printable_report
+from restaurante.research.ui import research_page
 from restaurante.seed import seed_demo
 from restaurante.service import RestaurantService, business_today
 
@@ -423,11 +424,35 @@ def purchases(service, today):
 
 def sales(service, today):
     page_header("SALIDAS DE INVENTARIO", "Registrar ventas",
-                "Elige un plato y sus porciones. La receta calcula el descuento de insumos.")
+                "Registra una venta o el total diario por plato. La receta estima los insumos utilizados.")
     dishes = service.dishes()
     if dishes.empty:
         st.info("Registra un plato y su receta en Catálogo antes de vender.")
     else:
+        with st.expander("Registrar el resumen del día por plato"):
+            st.caption("Úsalo si llevas un cuaderno o una hoja de cálculo. Ingresa solo porciones que "
+                       "todavía no registraste: este formulario añade ventas, no reemplaza registros previos.")
+            with st.form("daily_sales_form"):
+                daily_date = st.date_input("Fecha del resumen de ventas", value=today,
+                                          max_value=today, format="DD/MM/YYYY")
+                daily_input = dishes[["id", "name"]].copy()
+                daily_input["portions"] = 0
+                daily_rows = st.data_editor(daily_input, hide_index=True, width="stretch",
+                    disabled=["id", "name"], key="daily_sales_editor",
+                    column_config={"id": None, "name": "Plato",
+                                   "portions": st.column_config.NumberColumn("Porciones vendidas", min_value=0, step=1)})
+                save_day = st.form_submit_button("Guardar resumen de ventas")
+            if save_day:
+                try:
+                    if daily_rows.portions.isna().any() or (daily_rows.portions < 0).any() or (daily_rows.portions % 1).any():
+                        raise ValueError("Ingresa porciones enteras no negativas.")
+                    items = {int(row.id): int(row.portions) for row in daily_rows.itertuples() if row.portions > 0}
+                    if not items:
+                        raise ValueError("Ingresa al menos una porción vendida.")
+                    sale_id = service.record_sale(items, daily_date, request_key("daily_sale"))
+                    complete(f"Resumen #{sale_id} guardado. Revisa los registros y confirma el Cierre diario.", "daily_sale")
+                except ValueError as error:
+                    st.error(str(error))
         dish_id = st.selectbox(
             "Plato vendido",
             dishes["id"].tolist(),
@@ -838,6 +863,10 @@ def main():
                     if st.button("Comenzar mi restaurante", icon=":material/storefront:", width="stretch"):
                         st.session_state["mode"] = "Mi restaurante"
                         st.rerun()
+        if st.button("Preparar datos para la tesis", icon=":material/science:"):
+            st.session_state["mode"] = "Demostración"
+            st.session_state["page"] = "Investigación"
+            st.rerun()
         st.caption(
             "Demostración gratuita · Sesiones de prueba independientes · Moneda: soles (S/)"
             if public_demo else
@@ -862,7 +891,7 @@ def main():
         page = st.radio(
             "Tu operación",
             ["Resumen", "Catálogo", "Compras", "Ventas", "Stock y mermas", "Cierre diario",
-             "Plan de compras", "Reportes"],
+             "Plan de compras", "Reportes", "Investigación"],
             key="page",
         )
         st.divider()
@@ -870,6 +899,8 @@ def main():
             st.caption("Empieza en Catálogo, registra compras y luego ventas. Al terminar el servicio, "
                        "confirma el Cierre diario y revisa tu Plan de compras.")
             st.caption("La demostración y tu restaurante guardan datos por separado.")
+            st.caption("Investigación: genera datasets, consulta experimentos y calcula Aiken/SUS. "
+                       "Sus simulaciones no cambian el inventario operativo.")
     if public_demo:
         if "demo_directory" not in st.session_state:
             st.session_state["demo_directory"] = tempfile.TemporaryDirectory(prefix="mise-demo-")
@@ -905,6 +936,7 @@ def main():
             "Cierre diario": closing,
             "Plan de compras": planning,
             "Reportes": reports,
+            "Investigación": research_page,
         }
         handlers[page](service, today)
 

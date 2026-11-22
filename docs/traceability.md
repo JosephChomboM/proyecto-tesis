@@ -1,6 +1,8 @@
 # Trazabilidad del sistema y la investigación
 
-El sistema prioriza la aclaración del usuario: disponer de software funcional para el restaurante basado en el problema investigado. La investigación completa y su validación científica requieren evidencia adicional.
+El sistema combina operación diaria con un espacio de experimentación separado. El protocolo
+implementado se detalla en [experimentos.md](experimentos.md). La calibración y la validación
+científica con expertos y usuarios requieren evidencia que no puede generar el software.
 
 | Necesidad o fuente | Funcionalidad entregada | Límite o evidencia pendiente |
 |---|---|---|
@@ -8,11 +10,11 @@ El sistema prioriza la aclaración del usuario: disponer de software funcional p
 | PDF OE4, pp. 8–9: pronósticos y compras por insumo | Plan de consumo y compras de hasta siete días con exportación CSV | Las sugerencias requieren revisión; no crean pedidos |
 | PDF marco conceptual, pp. 24–25: receta estándar | Venta descuenta cantidades por porción y conserva su consumo histórico | Cantidades de ejemplo deben ajustarse al restaurante |
 | PDF, tabla de variables, pp. 10–11: merma/disponibilidad | Lotes PVPS, exclusión de vencidos, merma auditada y alertas de stock | Dashboard operativo, no comparación causal ni validación de hipótesis |
-| PDF, herramientas, p. 16 | Python, Pandas, scikit-learn y Streamlit | XGBoost/LSTM no forman parte de este MVP operativo |
-| PDF OE1, pp. 8 y 12–13: datos sintéticos calibrados | Demostración explícitamente separada del restaurante propio | No sustituye los tres perfiles completos, fuentes oficiales ni juicio de expertos |
-| PDF OE2, pp. 8 y 15: evaluación de modelos | Random Forest operativo, referencia estacional/promedio según historial | Evaluación temporal exportable RF/promedio/semanal disponible; faltan XGBoost/LSTM, particiones finales de tesis, ablation y pruebas estadísticas |
-| PDF OE3, pp. 8 y 15: impacto en inventario | Plan de compras simula consumo y vencimiento del stock disponible | No mide reducción de mermas ni prueba superioridad frente a política empírica |
-| PDF HE4, p. 9: SUS ≥ 68 | Flujos funcionales preparados para uso local | No se han recolectado respuestas ni calculado resultados de usuarios |
+| PDF, herramientas, p. 16 | Operación ligera; extra local research para XGBoost/TensorFlow | El servidor gratuito no entrena redes |
+| PDF OE1, pp. 8 y 12–13: datos sintéticos calibrados | Generador 2024–2025, tres perfiles editables, recetas, fuentes/supuestos y semillas; feriados documentados | Clima y volúmenes de ejemplo; faltan calibración y juicio de expertos |
+| PDF OE2, pp. 8 y 15: evaluación de modelos | Ingenuo, RF, XGBoost y LSTM; búsqueda temporal, variantes externas, prueba reservada, métricas y DM aproximado | Ejecutar protocolo definitivo y revisar supuestos inferenciales; los ejemplos no confirman hipótesis |
+| PDF OE3, pp. 8 y 15: impacto en inventario | Políticas pareadas, entregas, vencimientos, paquetes, saldo final y réplicas con Wilcoxon/bootstrap | Política empírica pendiente de validación; merma solo por vencimiento de insumos crudos |
+| PDF HE4, p. 9: SUS ≥ 68 | Tareas de prueba, importación de respuestas reales y cálculo SUS/Aiken | No se han recolectado respuestas de usuarios ni expertos |
 | PDF integridad científica, pp. 16–17 | Etiquetas de demostración y limitaciones visibles | No se afirma que se alcanzaron umbrales de precisión o reducción de desperdicio |
 
 Las páginas corresponden a la numeración visible del PDF de 35 páginas; su índice conserva referencias de una versión anterior. La implementación no modifica el documento fuente.
