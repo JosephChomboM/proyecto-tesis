@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from .calendar import EVENT_KINDS
-from .db import connect, initialize, transaction
+from .db import active_connection, connect, initialize, transaction
 
 EPSILON = 1e-8
 
@@ -67,11 +67,13 @@ class RestaurantService:
         initialize(self.db_path)
 
     def _frame(self, query, params=()):
-        connection = connect(self.db_path)
+        borrowed = active_connection(self.db_path)
+        connection = borrowed if borrowed is not None else connect(self.db_path)
         try:
             return pd.read_sql_query(query, connection, params=params)
         finally:
-            connection.close()
+            if borrowed is None:
+                connection.close()
 
     @staticmethod
     def _get(connection, table, item_id, active=False):
@@ -125,8 +127,9 @@ class RestaurantService:
                 used = connection.execute(
                     "SELECT 1 FROM purchases WHERE ingredient_id=? UNION ALL "
                     "SELECT 1 FROM demo_demand WHERE ingredient_id=? UNION ALL "
-                    "SELECT 1 FROM recipes WHERE ingredient_id=? LIMIT 1",
-                    (ingredient_id, ingredient_id, ingredient_id)).fetchone()
+                    "SELECT 1 FROM recipes WHERE ingredient_id=? UNION ALL "
+                    "SELECT 1 FROM imported_demand WHERE ingredient_id=? LIMIT 1",
+                    (ingredient_id, ingredient_id, ingredient_id, ingredient_id)).fetchone()
                 if old["unit"] != unit and used:
                     raise DomainError("No se puede cambiar la unidad de un insumo con movimientos.")
                 connection.execute(
@@ -220,6 +223,8 @@ class RestaurantService:
         if day > business_today().isoformat():
             raise DomainError("No se pueden registrar movimientos con fecha futura.")
         closed = connection.execute("SELECT MAX(day) FROM day_closures").fetchone()[0]
+        imported = connection.execute("SELECT MAX(day) FROM imported_history_days").fetchone()[0]
+        closed = max(filter(None, [closed, imported]), default=None)
         if closed and day <= closed:
             raise DomainError(f"El día ya está cerrado. Registra movimientos después de {closed}.")
         latest = connection.execute(
@@ -369,9 +374,11 @@ class RestaurantService:
             "GROUP BY i.id ORDER BY i.name", (day, day, day, day))
 
     def lots(self):
-        return self._frame("SELECT p.*,i.name,i.unit,CASE WHEN a.purchase_id IS NULL "
+        return self._frame("SELECT p.*,i.name,i.unit,CASE WHEN o.purchase_id IS NOT NULL "
+                           "THEN 'Stock inicial' WHEN a.purchase_id IS NULL "
                            "THEN 'Compra' ELSE 'Ajuste de conteo' END origin "
                            "FROM purchases p LEFT JOIN adjustment_lots a ON a.purchase_id=p.id "
+                           "LEFT JOIN opening_lots o ON o.purchase_id=p.id "
                            "JOIN ingredients i "
                            "ON i.id=p.ingredient_id ORDER BY received_on,p.id")
 
@@ -383,6 +390,7 @@ class RestaurantService:
         return self._frame("SELECT p.*,i.name,i.unit,p.quantity*p.unit_cost total FROM purchases p "
                            "JOIN ingredients i ON i.id=p.ingredient_id WHERE NOT EXISTS "
                            "(SELECT 1 FROM adjustment_lots a WHERE a.purchase_id=p.id) "
+                           "AND NOT EXISTS (SELECT 1 FROM opening_lots o WHERE o.purchase_id=p.id) "
                            "ORDER BY p.id DESC")
 
     def waste(self):
@@ -433,8 +441,17 @@ class RestaurantService:
             "FROM daily_demand d JOIN day_closures c ON c.day=d.day WHERE c.status='complete' "
             "AND NOT EXISTS (SELECT 1 FROM demo_demand x WHERE x.date=d.day "
             "AND x.ingredient_id=d.ingredient_id) "
+            "UNION ALL SELECT day date,ingredient_id,quantity,'imported_sales_complete' source FROM imported_demand "
             "UNION ALL SELECT date,ingredient_id,quantity,'synthetic_demo' source FROM demo_demand "
+            "WHERE NOT EXISTS (SELECT 1 FROM imported_history_days h WHERE h.day=demo_demand.date) "
             "ORDER BY date,ingredient_id")
+
+    def imported_sales(self):
+        return self._frame("SELECT h.day date,d.name dish,h.portions,h.unmet FROM imported_sales h "
+                           "JOIN dishes d ON d.id=h.dish_id ORDER BY h.day,d.name")
+
+    def imports(self):
+        return self._frame("SELECT * FROM import_batches ORDER BY created_at DESC,digest")
 
     def record_unmet(self, dish_id, portions, day, reason, request_key):
         dish_id = _number(dish_id, "Plato", positive=True, integer=True)

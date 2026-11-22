@@ -62,7 +62,7 @@ def test_public_demo_is_isolated_and_does_not_expose_own_restaurant(tmp_path, mo
     assert not first.exception
     assert all(button.label != "Comenzar mi restaurante" for button in first.button)
     label(first.button, "Explorar demostración").click().run()
-    assert label(first.selectbox, "Espacio de trabajo").options == ["Demostración"]
+    assert label(first.selectbox, "Espacio de trabajo").options == ["Demostración", "Prueba vacía"]
     second = AppTest.from_file(str(APP), default_timeout=30).run()
     label(second.button, "Explorar demostración").click().run()
     assert first.session_state["demo_directory"].name != second.session_state["demo_directory"].name
@@ -70,3 +70,22 @@ def test_public_demo_is_isolated_and_does_not_expose_own_restaurant(tmp_path, mo
     first.session_state["mode"] = "Mi restaurante"
     first.run()
     assert first.session_state["mode"] == "Demostración"
+
+
+def test_public_empty_setup_is_temporary_and_survives_workspace_switch(tmp_path, monkeypatch):
+    from restaurante.service import RestaurantService
+    monkeypatch.setenv("RESTAURANTE_PUBLIC_DEMO", "true")
+    monkeypatch.setenv("RESTAURANTE_DATA_DIR", str(tmp_path))
+    app = AppTest.from_file(str(APP), default_timeout=30).run()
+    label(app.button, "Configurar restaurante de prueba").click().run()
+    assert not app.exception
+    assert label(app.radio, "Tu operación").value == "Configuración inicial"
+    directory = app.session_state["demo_directory"].name
+    service = RestaurantService(Path(directory)/"restaurant.sqlite3")
+    assert service.ingredients().empty
+    service.save_ingredient("Prueba", "kg", 1, 1, 3, 0)
+    label(app.selectbox, "Espacio de trabajo").select("Demostración").run()
+    label(app.selectbox, "Espacio de trabajo").select("Prueba vacía").run()
+    assert app.session_state["demo_directory"].name == directory
+    assert service.ingredients().name.tolist() == ["Prueba"]
+    assert not list(tmp_path.glob("*.sqlite3"))

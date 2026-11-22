@@ -7,6 +7,7 @@ científica con expertos y usuarios requieren evidencia que no puede generar el 
 | Necesidad o fuente | Funcionalidad entregada | Límite o evidencia pendiente |
 |---|---|---|
 | Aclaración del usuario: sistema funcional | Catálogo, recetas, recepción de compras, ventas y stock persistente | Administrador local; no facturación ni acceso multiusuario |
+| Incorporación inicial sin código | Menú guiado, tablas editables y CSV con vista previa y transacción atómica | Catálogos existentes no se sobrescriben; historial antiguo requiere jornadas completas y recetas representativas |
 | PDF OE4, pp. 8–9: pronósticos y compras por insumo | Plan de consumo y compras de hasta siete días con exportación CSV | Las sugerencias requieren revisión; no crean pedidos |
 | Contexto del plan operativo | Feriados nacionales 2024–2026, eventos versionados, cierres excepcionales y evaluación con/sin contexto | No aplica aumentos fijos; efecto condicionado al historial; clima operativo pendiente |
 | PDF marco conceptual, pp. 24–25: receta estándar | Venta descuenta cantidades por porción y conserva su consumo histórico | Cantidades de ejemplo deben ajustarse al restaurante |

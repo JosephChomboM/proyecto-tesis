@@ -24,6 +24,7 @@ def operation_report(service, start, end):
     waste = period_rows(service.waste(), "occurred_on", start, end)
     unmet = period_rows(service.unmet(), "date", start, end)
     closures = period_rows(service.closures(), "day", start, end)
+    historical = period_rows(service.imported_sales(), "date", start, end)
     daily = pd.DataFrame({"date": pd.date_range(start, end).strftime("%Y-%m-%d")})
     if sales.empty:
         daily["total"] = 0.0
@@ -35,6 +36,7 @@ def operation_report(service, start, end):
     return {
         "sales": sales, "purchases": purchases, "waste": waste, "unmet": unmet,
         "closures": closures, "daily": daily,
+        "historical_sales": historical,
         "sales_amount": float(sales["total"].sum()),
         "purchase_amount": float(purchases["total"].sum()),
         "waste_amount": float(waste["cost"].sum()),
@@ -48,7 +50,8 @@ def printable_report(report, start, end, workspace, labels):
     """Self-contained HTML: escaped data, no remote assets, printable using the browser."""
     sections = []
     for key, title in [("sales", "Ventas registradas"), ("purchases", "Compras recibidas"),
-                       ("waste", "Mermas registradas"), ("unmet", "Pedidos no atendidos")]:
+                       ("waste", "Mermas registradas"), ("unmet", "Pedidos no atendidos"),
+                       ("historical_sales", "Historial importado para pronósticos (sin ingresos operativos)")]:
         frame = report[key]
         content = ("<p>Sin registros en el periodo.</p>" if frame.empty else
                    frame.rename(columns=labels).to_html(index=False, escape=True,

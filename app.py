@@ -18,6 +18,7 @@ from restaurante.reports import operation_report, printable_report
 from restaurante.research.ui import research_page
 from restaurante.seed import seed_demo
 from restaurante.service import RestaurantService, business_today
+from restaurante.setup_ui import setup_page
 
 st.set_page_config(
     page_title="Mise · Gestión de restaurante", page_icon=":material/restaurant:", layout="wide"
@@ -85,6 +86,8 @@ LABELS = {
     "context_label": "Contexto del día",
     "recorded_on": "Registrado el",
     "kind": "Tipo de evento",
+    "dish": "Plato",
+    "unmet": "Porciones no atendidas",
     "adjustment_id": "Ajuste",
 }
 
@@ -174,7 +177,7 @@ def dashboard(service, today):
                 "Lo que tienes, lo que vendes y lo que necesita atención antes del próximo servicio.")
     with st.expander("Guía de inicio: configura tu restaurante", expanded=service.ingredients().empty):
         st.markdown(
-            "1. **Catálogo → Insumos:** registra la unidad y presentación de compra.\n"
+            "1. **Configuración inicial:** completa tus tablas o importa CSV de insumos, platos y recetas.\n"
             "2. **Platos y Recetas:** indica insumos en peso bruto por porción. "
             "Ejemplo: 200 gramos se registran como 0.200 kg.\n"
             "3. **Compras:** ingresa existencias y sus vencimientos.\n"
@@ -194,6 +197,8 @@ def dashboard(service, today):
     )
     c.metric("Insumos por reponer", len(critical))
     st.subheader("¿Qué necesitas hacer?")
+    st.button("Configurar o importar mis datos", icon=":material/settings:",
+              on_click=go_to, args=("Configuración inicial",))
     action_columns = st.columns(4)
     for column, label, target, icon in zip(
         action_columns,
@@ -855,8 +860,12 @@ def reports(service, today):
     a.metric("Porciones vendidas", report["sold_portions"])
     b.metric("Porciones no atendidas", report["unmet_portions"])
     c.metric("Jornadas completas", report["complete_days"])
+    if not report["historical_sales"].empty:
+        st.info(f"Este periodo también contiene {int(report['historical_sales'].portions.sum())} porciones "
+                "de ventas históricas importadas. Se consultan en Detalle y descargas; alimentan el "
+                "pronóstico y no están sumadas a estos ingresos operativos.")
     if report["complete_days"] == 0:
-        st.warning("No hay jornadas confirmadas completas en este periodo. Los totales reflejan "
+        st.warning("No hay jornadas operativas confirmadas completas en este periodo. Los totales reflejan "
                    "lo registrado, pero podrían estar incompletos. Revisa el Cierre diario.")
     if st.session_state["mode"] == "Demostración":
         st.info("El historial sintético sirve para pronosticar; no representa ventas operativas. "
@@ -884,9 +893,10 @@ def reports(service, today):
             grouped = waste.groupby(["name", "unit"], as_index=False)[["quantity", "cost"]].sum()
             table(grouped.sort_values("cost", ascending=False), "mermas_por_insumo.csv")
     with movements:
-        category = st.selectbox("Qué deseas revisar", ["Ventas", "Compras", "Mermas", "Pedidos no atendidos", "Cierres"])
+        category = st.selectbox("Qué deseas revisar", ["Ventas", "Compras", "Mermas", "Pedidos no atendidos", "Cierres", "Ventas históricas importadas"])
         key = {"Ventas": "sales", "Compras": "purchases", "Mermas": "waste",
-               "Pedidos no atendidos": "unmet", "Cierres": "closures"}[category]
+               "Pedidos no atendidos": "unmet", "Cierres": "closures",
+               "Ventas históricas importadas": "historical_sales"}[category]
         st.subheader(category)
         table(report[key], f"reporte_{key}_{start}_{end}.csv")
     with glossary:
@@ -905,7 +915,7 @@ def main():
     if not require_access():
         return
     public_demo = is_public_demo()
-    if public_demo and st.session_state.get("mode") not in {None, "Demostración"}:
+    if public_demo and st.session_state.get("mode") not in {None, "Demostración", "Prueba vacía"}:
         st.session_state["mode"] = "Demostración"
     if "mode" not in st.session_state:
         brand()
@@ -930,6 +940,10 @@ def main():
                              "compras y ventas sin cambiar los datos de otros visitantes.")
                     st.info("Demostración gratuita: los registros son temporales. "
                             "Descarga los resultados que necesites conservar.")
+                    if st.button("Configurar restaurante de prueba", icon=":material/settings:"):
+                        st.session_state["mode"] = "Prueba vacía"
+                        st.session_state["page"] = "Configuración inicial"
+                        st.rerun()
                 else:
                     st.caption("PARA TU OPERACIÓN")
                     st.subheader("Organiza tu restaurante")
@@ -937,6 +951,7 @@ def main():
                              "desde la primera compra.")
                     if st.button("Comenzar mi restaurante", icon=":material/storefront:", width="stretch"):
                         st.session_state["mode"] = "Mi restaurante"
+                        st.session_state["page"] = "Configuración inicial"
                         st.rerun()
         if st.button("Preparar datos para la tesis", icon=":material/science:"):
             st.session_state["mode"] = "Demostración"
@@ -952,26 +967,27 @@ def main():
         brand()
         mode = st.selectbox(
             "Espacio de trabajo",
-            ["Demostración"] if public_demo else ["Demostración", "Mi restaurante"],
+            ["Demostración", "Prueba vacía"] if public_demo else ["Demostración", "Mi restaurante"],
             index=0 if st.session_state["mode"] == "Demostración" else 1,
             key="workspace_mode",
         )
         if mode != st.session_state["mode"]:
             st.session_state["mode"] = mode
             for key in list(st.session_state):
-                if key not in {"mode", "workspace_mode", "access_grant"}:
+                if key not in {"mode", "workspace_mode", "access_grant", "demo_directory"}:
                     del st.session_state[key]
             st.rerun()
         st.divider()
         page = st.radio(
             "Tu operación",
-            ["Resumen", "Catálogo", "Compras", "Ventas", "Stock y mermas", "Cierre diario",
+            ["Resumen", "Configuración inicial", "Catálogo", "Compras", "Ventas", "Stock y mermas", "Cierre diario",
              "Plan de compras", "Reportes", "Investigación"],
             key="page",
         )
         st.divider()
         with st.expander("Ayuda rápida"):
-            st.caption("Empieza en Catálogo, registra compras y luego ventas. Al terminar el servicio, "
+            st.caption("Empieza en Configuración inicial: completa las tablas o importa tus CSV. "
+                       "Después registra compras y ventas. Al terminar el servicio, "
                        "confirma el Cierre diario y revisa tu Plan de compras.")
             st.caption("La demostración y tu restaurante guardan datos por separado.")
             st.caption("Investigación: genera datasets, consulta experimentos y calcula Aiken/SUS. "
@@ -995,7 +1011,7 @@ def main():
         seed_demo(service, today=today)
     context_bar(mode, today.strftime("%d/%m/%Y"))
     if public_demo:
-        st.info("Demostración pública · Tu sesión usa datos de ejemplo separados de otros visitantes. "
+        st.info("Demostración pública · Tu espacio de prueba está separado de otros visitantes. "
                 "No ingreses datos reales: los cambios pueden perderse al cerrar la sesión o reiniciar "
                 "el servidor. Descarga tus resultados antes de salir.")
     if "flash" in st.session_state:
@@ -1004,6 +1020,7 @@ def main():
         catalog(service)
     else:
         handlers = {
+            "Configuración inicial": setup_page,
             "Resumen": dashboard,
             "Compras": purchases,
             "Ventas": sales,

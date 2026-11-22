@@ -185,6 +185,7 @@ def test_inventory_search_filters_visible_table(app, tmp_path):
 def test_report_page_has_period_metrics_and_clear_empty_state(app):
     app.run()
     by_label(app.button, "Comenzar mi restaurante").click().run()
+    navigate(app, "Resumen")
     by_label(app.button, "Ver reportes por fecha").click().run()
     assert not app.exception
     assert by_label(app.radio, "Tu operación").value == "Reportes"
@@ -248,3 +249,38 @@ def test_plan_registers_exceptional_closure_and_explains_context(app, tmp_path):
     assert not app.exception
     assert service.events().empty
     assert len(service.events(include_history=True)) == 2
+
+
+def test_initial_setup_can_save_catalog_from_screen_with_preview(app, tmp_path):
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    assert by_label(app.radio, "Tu operación").value == "Configuración inicial"
+    app.session_state["setup_grid_insumos"] = {
+        "edited_rows": {0: {"insumo": "Pollo", "costo_unitario": 11.0}},
+        "added_rows": [], "deleted_rows": []}
+    app.run()
+    by_label(app.button, "Revisar tabla inicial").click().run()
+    assert not app.exception and not app.error
+    service = RestaurantService(tmp_path/"restaurant.sqlite3")
+    assert service.ingredients().empty  # Preview has no effects.
+    by_label(app.button, "Guardar tabla inicial").click().run()
+    assert not app.exception and not app.error
+    assert service.ingredients().name.tolist() == ["Pollo"]
+    assert len(service.imports()) == 1
+
+
+def test_csv_preview_confirmation_and_reupload_in_ui(app, tmp_path):
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    content = b"Nombre,Unidad,Costo,Empaque,Vida util,Reserva\nPollo,kg,11,1,2,1\n"
+    by_label(app.file_uploader, "Selecciona tu archivo CSV").set_value(("insumos.csv", content, "text/csv")).run()
+    assert not app.exception and not app.error
+    by_label(app.button, "Validar y previsualizar").click().run()
+    service = RestaurantService(tmp_path/"restaurant.sqlite3")
+    assert service.ingredients().empty
+    by_label(app.button, "Confirmar importación").click().run()
+    assert not app.exception and not app.error
+    assert service.ingredients().name.tolist() == ["Pollo"]
+    by_label(app.button, "Validar y previsualizar").click().run()
+    by_label(app.button, "Confirmar importación").click().run()
+    assert len(service.ingredients()) == 1 and len(service.imports()) == 1

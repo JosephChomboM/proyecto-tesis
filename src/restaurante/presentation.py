@@ -28,7 +28,8 @@ def brand():
 
 
 def context_bar(mode, date_label):
-    label = "Espacio de demostración · datos de ejemplo" if mode == "Demostración" else "Mi restaurante"
+    label = ("Espacio de demostración · datos de ejemplo" if mode == "Demostración" else
+             "Restaurante de prueba · temporal" if mode == "Prueba vacía" else "Mi restaurante")
     st.markdown(
         '<div class="mise-context"><span class="mise-context-label">'
         f'<span class="mise-dot" aria-hidden="true"></span>{escape(label)}</span>'

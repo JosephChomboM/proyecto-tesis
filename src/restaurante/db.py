@@ -2,7 +2,11 @@
 
 import sqlite3
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
+from uuid import uuid4
+
+_active = ContextVar("restaurant_transaction", default=None)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -99,6 +103,31 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 CREATE INDEX IF NOT EXISTS events_day ON calendar_events(day,id);
 UPDATE metadata SET value='3' WHERE key='schema_version';
+CREATE TABLE IF NOT EXISTS import_batches (
+ digest TEXT PRIMARY KEY, kind TEXT NOT NULL, filename TEXT NOT NULL,
+ row_count INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS import_references (
+ kind TEXT NOT NULL, reference TEXT NOT NULL, payload_hash TEXT NOT NULL,
+ batch_digest TEXT NOT NULL REFERENCES import_batches(digest), PRIMARY KEY(kind,reference)
+);
+CREATE TABLE IF NOT EXISTS opening_lots (
+ purchase_id INTEGER PRIMARY KEY REFERENCES purchases(id),
+ batch_digest TEXT NOT NULL REFERENCES import_batches(digest)
+);
+CREATE TABLE IF NOT EXISTS imported_history_days (
+ day TEXT PRIMARY KEY, batch_digest TEXT NOT NULL REFERENCES import_batches(digest)
+);
+CREATE TABLE IF NOT EXISTS imported_sales (
+ day TEXT NOT NULL REFERENCES imported_history_days(day), dish_id INTEGER NOT NULL REFERENCES dishes(id),
+ portions INTEGER NOT NULL CHECK(portions>=0), unmet INTEGER NOT NULL CHECK(unmet>=0),
+ PRIMARY KEY(day,dish_id)
+);
+CREATE TABLE IF NOT EXISTS imported_demand (
+ day TEXT NOT NULL REFERENCES imported_history_days(day), ingredient_id INTEGER NOT NULL REFERENCES ingredients(id),
+ quantity REAL NOT NULL CHECK(quantity>=0), PRIMARY KEY(day,ingredient_id)
+);
+UPDATE metadata SET value='4' WHERE key='schema_version';
 """
 
 
@@ -122,7 +151,20 @@ def initialize(path):
 
 @contextmanager
 def transaction(path):
+    existing = active_connection(path)
+    if existing is not None:
+        savepoint = "nested_"+uuid4().hex
+        existing.execute(f"SAVEPOINT {savepoint}")
+        try:
+            yield existing
+        except BaseException:
+            existing.execute(f"ROLLBACK TO {savepoint}")
+            raise
+        finally:
+            existing.execute(f"RELEASE {savepoint}")
+        return
     connection = connect(path)
+    token = _active.set((Path(path).resolve(), connection))
     try:
         connection.execute("BEGIN IMMEDIATE")
         yield connection
@@ -131,4 +173,10 @@ def transaction(path):
         connection.rollback()
         raise
     finally:
+        _active.reset(token)
         connection.close()
+
+
+def active_connection(path):
+    active = _active.get()
+    return active[1] if active and active[0] == Path(path).resolve() else None

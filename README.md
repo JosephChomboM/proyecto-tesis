@@ -12,6 +12,13 @@ El plan diario reconoce feriados nacionales de 2024–2026 y permite anotar prom
 reservas y cierres excepcionales. Muestra el contexto por fecha y compara el pronóstico
 con/sin estas señales. Consulta [feriados y eventos](docs/feriados-eventos.md).
 
+En **Configuración inicial** puedes completar tus tablas en pantalla o importar CSV de
+insumos, platos, recetas, stock inicial, compras y ventas históricas, con asociación de
+columnas, vista previa y guardado completo. Consulta [la guía de importación](docs/importacion-inicial.md).
+El stock inicial no se registra como gasto de compra y las ventas antiguas alimentan el
+pronóstico sin descontar otra vez el inventario. La web gratuita permite comenzar con una
+**Prueba vacía** temporal; la persistencia local y los respaldos siguen usando SQLite.
+
 ## Iniciar
 
 El despliegue gratuito de Render usa **demostraciones temporales separadas por sesión**:
