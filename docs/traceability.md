@@ -8,6 +8,7 @@ científica con expertos y usuarios requieren evidencia que no puede generar el 
 |---|---|---|
 | Aclaración del usuario: sistema funcional | Catálogo, recetas, recepción de compras, ventas y stock persistente | Administrador local; no facturación ni acceso multiusuario |
 | PDF OE4, pp. 8–9: pronósticos y compras por insumo | Plan de consumo y compras de hasta siete días con exportación CSV | Las sugerencias requieren revisión; no crean pedidos |
+| Contexto del plan operativo | Feriados nacionales 2024–2026, eventos versionados, cierres excepcionales y evaluación con/sin contexto | No aplica aumentos fijos; efecto condicionado al historial; clima operativo pendiente |
 | PDF marco conceptual, pp. 24–25: receta estándar | Venta descuenta cantidades por porción y conserva su consumo histórico | Cantidades de ejemplo deben ajustarse al restaurante |
 | PDF, tabla de variables, pp. 10–11: merma/disponibilidad | Lotes PVPS, exclusión de vencidos, merma auditada y alertas de stock | Dashboard operativo, no comparación causal ni validación de hipótesis |
 | PDF, herramientas, p. 16 | Operación ligera; extra local research para XGBoost/TensorFlow | El servidor gratuito no entrena redes |

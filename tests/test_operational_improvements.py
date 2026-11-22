@@ -111,7 +111,7 @@ def test_existing_database_migration_keeps_records(kitchen):
     assert len(reopened.ingredients()) == 1
     connection = connect(service.db_path)
     try:
-        assert connection.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == "2"
+        assert connection.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == "3"
     finally:
         connection.close()
 

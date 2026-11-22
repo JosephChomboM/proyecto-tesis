@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 
 from restaurante.access import is_public_demo, require_access
+from restaurante.calendar import CALENDAR_SOURCES, EVENT_KINDS, holidays_for_year
 from restaurante.evaluation import rolling_evaluation
 from restaurante.forecast import forecast_demand, purchase_plan
 from restaurante.presentation import brand, context_bar, load_styles, note, page_header, welcome
@@ -74,6 +75,16 @@ LABELS = {
     "mape_excluded_zeros": "Ceros excluidos del MAPE",
     "is_open": "Día de atención",
     "created_at": "Fecha de cierre (UTC)",
+    "is_holiday": "¿Es feriado?",
+    "holiday_name": "Feriado",
+    "calendar_known": "Calendario nacional verificado",
+    "event_name": "Evento especial",
+    "event_type": "Tipo de evento",
+    "context_used": "Contexto incluido en el modelo",
+    "comparable_days": "Antecedentes del contexto",
+    "context_label": "Contexto del día",
+    "recorded_on": "Registrado el",
+    "kind": "Tipo de evento",
     "adjustment_id": "Ajuste",
 }
 
@@ -87,6 +98,13 @@ def table(frame, filename=None):
     if "Estado" in display:
         display["Estado"] = display["Estado"].replace(
             {"complete": "Jornada completa", "closed": "No hubo atención"})
+    for column in ("kind", "event_type"):
+        if column in frame:
+            display[LABELS[column]] = frame[column].replace(EVENT_KINDS)
+    if "strategy" in frame:
+        display[LABELS["strategy"]] = frame.strategy.replace({
+            "auto": "Automático con contexto", "auto_no_context": "Automático sin contexto",
+            "mean": "Promedio", "seasonal": "Referencia semanal"})
     monetary = {"cost", "unit_cost", "price", "total", "estimated_cost"}
     quantities = {
         "quantity",
@@ -627,6 +645,47 @@ def closing(service, today):
     table(service.closures(), "cierres.csv")
 
 
+def calendar_controls(service, today):
+    with st.expander("Feriados y eventos especiales"):
+        st.write("Los feriados nacionales se reconocen por fecha. No significan que el restaurante "
+                 "cierre ni que deba comprar más: el efecto se aprende de sus antecedentes.")
+        year_options = sorted(CALENDAR_SOURCES)
+        year = st.selectbox("Año del calendario peruano", year_options,
+                            index=year_options.index(today.year) if today.year in year_options else len(year_options)-1)
+        holidays = holidays_for_year(year)
+        table(pd.DataFrame([{"date": day.isoformat(), "holiday_name": name}
+                            for day, name in sorted(holidays.items())]), f"feriados_peru_{year}.csv")
+        st.markdown(f"[Fuente del calendario {year}]({CALENDAR_SOURCES[year]})")
+        st.caption("Calendario incorporado: 2024–2026. No incluye automáticamente días no laborables "
+                   "compensables del sector público ni feriados regionales. Puedes declarar una fecha local aquí.")
+        st.subheader("Anota una promoción, reserva o cierre")
+        st.caption("Un evento por fecha; guardar de nuevo esa fecha lo actualiza. Es contexto para el "
+                   "pronóstico: no registra ventas, pedidos ni compras. Una reserva no añade porciones automáticamente.")
+        with st.form("calendar_event_form"):
+            a, b = st.columns(2)
+            event_day = a.date_input("Fecha del evento", value=today+timedelta(days=1), format="DD/MM/YYYY")
+            kind = b.selectbox("Tipo de evento especial", list(EVENT_KINDS), format_func=EVENT_KINDS.get)
+            name = st.text_input("Descripción del evento", max_chars=200,
+                                 placeholder="Ej.: promoción de almuerzos o cierre por mantenimiento")
+            submitted = st.form_submit_button("Guardar evento")
+        if submitted:
+            try:
+                service.save_event(event_day, kind, name)
+                complete("Evento guardado. El plan ya considera el contexto registrado.")
+            except ValueError as error:
+                st.error(str(error))
+        registered = service.events()
+        if not registered.empty:
+            st.subheader("Eventos registrados")
+            table(registered[["day", "kind", "name", "recorded_on"]], "eventos_especiales.csv")
+            labels = {int(row.id): f"{row.day} · {row['name']}" for _, row in registered.iterrows()}
+            selected = st.selectbox("Evento que deseas retirar", list(labels), format_func=labels.get)
+            if st.button("Retirar evento"):
+                event = registered.loc[registered.id == selected].iloc[0]
+                service.save_event(event.day, "cancelled", "Evento retirado")
+                complete("Evento retirado del plan. Se conserva el historial de cambios.")
+
+
 def planning(service, today):
     page_header("PRÓXIMOS SERVICIOS", "Planifica tus compras",
                 "Revisa qué insumos necesitarás, cuánto comprar y cuándo hacer el pedido.")
@@ -634,6 +693,7 @@ def planning(service, today):
     if ingredients.empty:
         st.info("Registra tus insumos y ventas para comenzar a planificar.")
         return
+    calendar_controls(service, today)
     with st.container(border=True):
         st.subheader("Prepara tu plan")
         a, b, c = st.columns(3)
@@ -663,7 +723,21 @@ def planning(service, today):
         )
     origin = today + timedelta(days=1)
     predictions = forecast_demand(history, ingredients, origin, horizon=horizon,
-                                  operating_weekdays=[day_names.index(d) for d in attention])
+                                  operating_weekdays=[day_names.index(d) for d in attention],
+                                  events=service.events(include_history=True))
+    st.subheader("Contexto de los próximos días")
+    table(predictions[["date", "context_label", "is_holiday", "is_open", "calendar_known"]]
+          .drop_duplicates(), "contexto_plan.csv")
+    if not predictions.calendar_known.all():
+        st.warning("Hay fechas sin calendario nacional verificado. Revisa sus feriados antes de decidir la compra.")
+    special = predictions[predictions.is_holiday | predictions.event_type.ne("")]
+    limited = special[special.is_open & (~special.context_used | special.comparable_days.lt(3))]
+    if not limited.empty:
+        st.warning("Hay feriados o eventos con pocos antecedentes, o insumos sin modelo entrenado. "
+                   "El efecto no está validado: revisa las cantidades. No se aplica un aumento fijo por ser feriado o evento.")
+    st.caption("Random Forest recibe el indicador de feriado y el tipo de evento junto al historial. "
+               "Las referencias por promedio o semana no ajustan su demanda por ese contexto. "
+               "Un cierre excepcional anula la demanda prevista de esa fecha.")
     if not predictions.empty and predictions["missing_days"].max() > 0:
         st.warning("Hay huecos en el historial. Se usan observaciones conocidas; los rezagos del "
                    "modelo arrastran el último dato disponible. Revisa la vigencia del historial.")
@@ -673,7 +747,7 @@ def planning(service, today):
     st.caption(
         "Considera vencimientos, consumo previsto, reserva y presentaciones de compra. Las cantidades de días posteriores suponen que recibiste las compras sugeridas antes de cada servicio."
     )
-    summary_columns = ["order_on", "date", "name", "suggested_quantity", "unit", "estimated_cost"]
+    summary_columns = ["order_on", "date", "name", "suggested_quantity", "unit", "estimated_cost", "context_label"]
     planned_purchases = plan[plan["suggested_quantity"] > 0][summary_columns]
     a, b, c = st.columns(3)
     a.metric("Compra estimada para el periodo", f"S/ {plan['estimated_cost'].sum():,.2f}")
@@ -737,7 +811,7 @@ def planning(service, today):
             table(named, "pronosticos.csv")
     with st.expander("Evaluación temporal del pronóstico"):
         st.caption(
-            "Compara el método automático con promedio y referencia semanal sobre tres bloques "
+            "Compara el método automático con y sin contexto, promedio y referencia semanal sobre tres bloques "
             "pasados de siete días. Exige 56 días de entrenamiento por insumo. "
             "Las métricas se calculan por insumo; no se mezclan kg y litros. "
             "MAPE excluye ceros y WAPE queda vacío si la demanda total es cero. "
@@ -745,7 +819,8 @@ def planning(service, today):
         )
         if st.button("Evaluar con historial disponible"):
             with st.spinner("Comparando pronósticos sin utilizar datos futuros..."):
-                summary, detail = rolling_evaluation(history, ingredients)
+                summary, detail = rolling_evaluation(history, ingredients,
+                    events=service.events(include_history=True), compare_context=True)
             if summary.empty:
                 st.info("Todavía no hay suficientes jornadas completas para evaluar.")
             else:

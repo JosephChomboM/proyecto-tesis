@@ -91,6 +91,14 @@ CREATE TABLE IF NOT EXISTS adjustment_lots (
  adjustment_id INTEGER NOT NULL REFERENCES stock_adjustments(id)
 );
 UPDATE metadata SET value='2' WHERE key='schema_version';
+CREATE TABLE IF NOT EXISTS calendar_events (
+ id INTEGER PRIMARY KEY, day TEXT NOT NULL,
+ kind TEXT NOT NULL CHECK(kind IN ('promotion','reservation','closure','holiday','other','cancelled')),
+ name TEXT NOT NULL, recorded_on TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS events_day ON calendar_events(day,id);
+UPDATE metadata SET value='3' WHERE key='schema_version';
 """
 
 

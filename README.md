@@ -8,6 +8,10 @@ con respuestas humanas. Consulta [la guía de experimentos](docs/experimentos.md
 Los parámetros iniciales son supuestos de ejemplo, no datos calibrados o validados de Lima.
 El entrenamiento completo es local; Render gratuito permite generar datos y consultar resultados.
 
+El plan diario reconoce feriados nacionales de 2024–2026 y permite anotar promociones,
+reservas y cierres excepcionales. Muestra el contexto por fecha y compara el pronóstico
+con/sin estas señales. Consulta [feriados y eventos](docs/feriados-eventos.md).
+
 ## Iniciar
 
 El despliegue gratuito de Render usa **demostraciones temporales separadas por sesión**:

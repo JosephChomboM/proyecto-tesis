@@ -28,7 +28,8 @@ def error_metrics(actual, predicted):
     }
 
 
-def rolling_evaluation(history, ingredients, horizon=7, folds=3, min_train_days=56):
+def rolling_evaluation(history, ingredients, horizon=7, folds=3, min_train_days=56,
+                       events=None, compare_context=False):
     """Fixed non-overlapping test blocks; report errors by ingredient and strategy.
 
     Folds use only known target days. Missing target days are excluded, not scored as zero.
@@ -52,8 +53,10 @@ def rolling_evaluation(history, ingredients, horizon=7, folds=3, min_train_days=
         if eligible.empty:
             continue
         truth = data.groupby(["date", "ingredient_id"], as_index=False)["quantity"].sum()
-        for strategy in ("auto", "mean", "seasonal"):
-            predictions = forecast_demand(training, eligible, origin, horizon, strategy=strategy)
+        strategies = ("auto", "auto_no_context", "mean", "seasonal") if compare_context else ("auto", "mean", "seasonal")
+        for strategy in strategies:
+            predictions = forecast_demand(training, eligible, origin, horizon, strategy=strategy,
+                                          events=events)
             predictions["date"] = pd.to_datetime(predictions["date"]).dt.date
             scored = predictions.merge(truth, on=["date", "ingredient_id"], how="inner")
             scored["strategy"] = strategy

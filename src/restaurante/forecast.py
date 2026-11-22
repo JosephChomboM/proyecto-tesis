@@ -13,8 +13,11 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
+from .calendar import CONTEXT_FEATURES, daily_context
+
 FORECAST_COLUMNS = ["date", "ingredient_id", "predicted", "method", "history_days",
-                    "missing_days", "is_open"]
+                    "missing_days", "is_open", "is_holiday", "holiday_name", "calendar_known",
+                    "event_name", "event_type", "context_used", "comparable_days", "context_label"]
 PLAN_COLUMNS = [
     "date",
     "ingredient_id",
@@ -28,6 +31,7 @@ PLAN_COLUMNS = [
     "closing_stock",
     "expired_quantity",
     "order_on",
+    "context_label",
 ]
 
 
@@ -66,9 +70,9 @@ def _catalog(ingredients: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def _features(values: list[float], day, start) -> list[float]:
+def _features(values: list[float], day, start, context=None) -> list[float]:
     """Every demand feature ends strictly before the target day."""
-    return [
+    features = [
         values[-1],
         values[-7],
         values[-14],
@@ -80,10 +84,13 @@ def _features(values: list[float], day, start) -> list[float]:
         math.cos(2 * math.pi * day.timetuple().tm_yday / 365.25),
         (day - start).days,
     ]
+    if context is not None:
+        features.extend(float(context[key]) for key in CONTEXT_FEATURES)
+    return features
 
 
 def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=None,
-                    strategy="auto"):
+                    strategy="auto", events=None):
     """Predict from ``origin`` inclusively, recursively, without future observations.
 
     RF requires 56 distinct observed days. Otherwise use last-week demand, a
@@ -97,7 +104,7 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
     ):
         raise ValueError("El horizonte debe ser un entero entre 1 y 90 días.")
     origin = _day(origin)
-    if strategy not in {"auto", "mean", "seasonal"}:
+    if strategy not in {"auto", "auto_no_context", "mean", "seasonal"}:
         raise ValueError("Método de pronóstico inválido.")
     weekdays = set(range(7) if operating_weekdays is None else operating_weekdays)
     if not weekdays.issubset(set(range(7))):
@@ -113,6 +120,11 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
         data["date"] = data["date"].map(_day)
         data = data[data["date"] < origin].copy()
         data["quantity"] = data["quantity"].map(lambda x: _number(x, "Demanda"))
+    context_start = min(data["date"]) if not data.empty else origin
+    context = daily_context(pd.date_range(context_start, origin + timedelta(days=horizon-1)),
+                            events, as_of=origin-timedelta(days=1))
+    context_lookup = context.set_index("date").to_dict("index")
+    use_context = strategy == "auto"
     rows = []
     for ingredient in catalog.to_dict("records"):
         ingredient_id = int(ingredient["id"])
@@ -128,12 +140,14 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
             missing_days = int(calendar.isna().sum())
             # Carry the last known consumption for lag features, never invent zero targets.
             values = calendar.ffill().tolist()
-            if strategy == "auto" and observed_days >= 56 and len(values) >= 56:
+            if strategy in {"auto", "auto_no_context"} and observed_days >= 56 and len(values) >= 56:
                 x, y = [], []
                 for offset in range(28, len(values)):
                     if pd.isna(calendar.iloc[offset]):
                         continue
-                    x.append(_features(values[:offset], start + timedelta(days=offset), start))
+                    target_day = start + timedelta(days=offset)
+                    x.append(_features(values[:offset], target_day, start,
+                                       context_lookup[target_day] if use_context else None))
                     y.append(values[offset])
                 model = RandomForestRegressor(
                     n_estimators=80,
@@ -153,8 +167,10 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
         short_mean = float(daily.mean()) if observed_days else 0.0
         for offset in range(horizon):
             day = origin + timedelta(days=offset)
+            info = context_lookup[day]
             if model is not None:
-                predicted = float(model.predict([_features(values, day, start)])[0])
+                predicted = float(model.predict([_features(values, day, start,
+                    info if use_context else None)])[0])
             elif method.startswith("Ingenuo"):
                 reference = day - timedelta(days=7)
                 if reference >= origin:
@@ -167,8 +183,20 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
             else:
                 predicted = short_mean
             predicted = max(0.0, predicted)
-            if day.weekday() not in weekdays:
+            is_open = day.weekday() in weekdays and not info["forced_closed"]
+            if not is_open:
                 predicted = 0.0
+            observed_context = context[context.date.isin(daily.index)] if observed_days else context.iloc[:0]
+            if info["event_type"]:
+                comparable = int(observed_context.event_type.eq(info["event_type"]).sum())
+            elif info["is_holiday"]:
+                comparable = int(observed_context.is_holiday.sum())
+            else:
+                comparable = observed_days
+            label = " · ".join(dict.fromkeys(value for value in (info["holiday_name"], info["event_name"])
+                                             if value))
+            if not info["calendar_known"]:
+                label = " · ".join(filter(None, [label, "Calendario nacional por verificar"]))
             rows.append(
                 {
                     "date": day.isoformat(),
@@ -177,7 +205,11 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
                     "method": method,
                     "history_days": int(observed_days),
                     "missing_days": missing_days,
-                    "is_open": day.weekday() in weekdays,
+                    "is_open": is_open,
+                    "is_holiday": info["is_holiday"], "holiday_name": info["holiday_name"],
+                    "calendar_known": info["calendar_known"], "event_name": info["event_name"],
+                    "event_type": info["event_type"], "context_used": model is not None and use_context,
+                    "comparable_days": comparable, "context_label": label or "Día habitual",
                 }
             )
             values.append(predicted)
@@ -283,6 +315,7 @@ def purchase_plan(predictions, lots, ingredients, safety_factor=1.0, lead_time_d
                     "closing_stock": closing,
                     "expired_quantity": expired,
                     "order_on": (day - timedelta(days=int(lead_time_days))).isoformat(),
+                    "context_label": target.get("context_label", ""),
                 }
             )
     return (

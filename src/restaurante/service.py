@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from .calendar import EVENT_KINDS
 from .db import connect, initialize, transaction
 
 EPSILON = 1e-8
@@ -85,6 +86,23 @@ class RestaurantService:
     def ingredients(self, include_inactive=False):
         return self._frame("SELECT * FROM ingredients" + ("" if include_inactive else " WHERE active=1")
                            + " ORDER BY name")
+
+    def save_event(self, day, kind, name):
+        """Append a revision; registering context never creates sales or stock movements."""
+        day, name = _date(day), _text(name, "Descripción del evento")
+        if kind not in {*EVENT_KINDS, "cancelled"}:
+            raise DomainError("Selecciona un tipo de evento válido.")
+        with transaction(self.db_path) as connection:
+            return connection.execute(
+                "INSERT INTO calendar_events(day,kind,name,recorded_on) VALUES (?,?,?,?)",
+                (day, kind, name, business_today().isoformat())).lastrowid
+
+    def events(self, include_history=False):
+        if include_history:
+            return self._frame("SELECT * FROM calendar_events ORDER BY id")
+        return self._frame("SELECT * FROM calendar_events WHERE id IN "
+                           "(SELECT MAX(id) FROM calendar_events GROUP BY day) "
+                           "AND kind!='cancelled' ORDER BY day")
 
     def save_ingredient(self, name, unit, cost, pack_size, shelf_life_days, safety_stock,
                         ingredient_id=None):

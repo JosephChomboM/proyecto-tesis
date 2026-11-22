@@ -224,3 +224,27 @@ def test_research_example_reports_open_without_training(app):
     assert not app.exception
     assert not app.error
     assert by_label(app.metric, "Merma con pronóstico")
+
+
+def test_plan_registers_exceptional_closure_and_explains_context(app, tmp_path):
+    from datetime import timedelta
+    service = RestaurantService(tmp_path / "restaurant.sqlite3")
+    service.save_ingredient("Pollo", "kg", 10, 1, 2, 1)
+    app.run()
+    by_label(app.button, "Comenzar mi restaurante").click().run()
+    navigate(app, "Plan de compras")
+    by_label(app.selectbox, "Tipo de evento especial").select("closure")
+    by_label(app.text_input, "Descripción del evento").set_value("Mantenimiento de cocina")
+    by_label(app.button, "Guardar evento").click().run()
+    assert not app.exception and not app.error
+    assert service.events().iloc[0]["name"] == "Mantenimiento de cocina"
+    context = next(frame.value for frame in app.dataframe if "Contexto del día" in frame.value
+                   and "¿Es feriado?" in frame.value)
+    assert context.iloc[0]["Contexto del día"] == "Mantenimiento de cocina"
+    assert not bool(context.iloc[0]["Día de atención"])
+    assert service.sales().empty and service.purchases().empty
+    assert service.events().iloc[0].day == (business_today()+timedelta(days=1)).isoformat()
+    by_label(app.button, "Retirar evento").click().run()
+    assert not app.exception
+    assert service.events().empty
+    assert len(service.events(include_history=True)) == 2
