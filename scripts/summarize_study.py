@@ -34,12 +34,25 @@ def holm(values):
 
 
 def paired_effect(difference):
-    difference = np.asarray(difference, float)
+    # Uniform numerical tolerance avoids spurious ranks from binary roundoff ties.
+    difference = np.round(np.asarray(difference, float), 8)
     rng = np.random.default_rng(42)
     boot = rng.choice(difference, size=(3000, len(difference)), replace=True).mean(axis=1)
     return {'n': len(difference), 'mean_reduction': float(difference.mean()),
         'ci95_low': float(np.quantile(boot, .025)), 'ci95_high': float(np.quantile(boot, .975)),
         'p_value': 1. if np.allclose(difference, 0) else float(stats.wilcoxon(difference).pvalue)}
+
+
+def paired_inventory(frame, indicators):
+    result = paired_replica_summary(frame, indicators)
+    for index, row in result.iterrows():
+        if row.replications < 5:
+            continue
+        wide = frame.pivot(index='seed', columns='policy', values=row.indicator).dropna()
+        stable = paired_effect(wide.empirical-wide.forecast)
+        for name in ['p_value','ci95_low','ci95_high']:
+            result.loc[index,name] = stable[name]
+    return result
 
 
 def summarize(root):
@@ -117,10 +130,10 @@ def summarize(root):
     totals = inv.groupby(['seed','policy'])[sums].sum().reset_index()
     totals['service_percent'] = totals.served/totals.demand*100
     frames['inventario_total_por_replica'] = totals
-    frames['comparacion_politicas_total'] = paired_replica_summary(totals, ('expired','waste_cost','stockout','unmet','purchase_cost'))
+    frames['comparacion_politicas_total'] = paired_inventory(totals, ('expired','waste_cost','stockout','unmet','purchase_cost'))
     paired_series = []
     for (profile, ingredient, unit), group in inv.groupby(['profile','ingredient','unit']):
-        paired_series.append(paired_replica_summary(group, ('expired','waste_cost','stockout','unmet')).assign(
+        paired_series.append(paired_inventory(group, ('expired','waste_cost','stockout','unmet')).assign(
             profile=profile, ingredient=ingredient, unit=unit))
     paired = pd.concat(paired_series, ignore_index=True)
     # Holm within each endpoint across 24 profile-ingredient comparisons.

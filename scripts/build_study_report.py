@@ -77,6 +77,9 @@ def build(root):
     plt.close(fig)
 
     doc = Document()
+    doc.core_properties.title = 'Resultados de la simulación de demanda y compras de insumos'
+    doc.core_properties.subject = 'Estudio computacional reproducible con datos sintéticos no calibrados'
+    doc.core_properties.author = ''
     section = doc.sections[0]
     section.page_width, section.page_height = Inches(8.5), Inches(11)
     section.top_margin, section.bottom_margin = Inches(.75), Inches(.7)
@@ -85,6 +88,11 @@ def build(root):
         s = doc.styles[style]
         s.font.name = 'Times New Roman'
         s.font.color.rgb = RGBColor(0,0,0)
+        fonts = s._element.get_or_add_rPr().rFonts
+        for attribute in ['asciiTheme','hAnsiTheme','eastAsiaTheme','cstheme']:
+            fonts.attrib.pop(qn('w:'+attribute), None)
+        for border in list(s._element.xpath('./w:pPr/w:pBdr')):
+            border.getparent().remove(border)
     doc.styles['Normal'].font.size = Pt(11)
     doc.styles['Normal'].paragraph_format.space_after = Pt(7)
     doc.styles['Normal'].paragraph_format.line_spacing = 1.12
@@ -116,6 +124,8 @@ def build(root):
         t.autofit = False
         if widths is None:
             widths = [6.8/len(headers)]*len(headers)
+        for column, width in zip(t.columns, widths, strict=True):
+            column.width = Inches(width)
         for cell, text in zip(t.rows[0].cells, headers, strict=True):
             cell.text = str(text)
         repeat = OxmlElement('w:tblHeader')
@@ -177,6 +187,9 @@ def build(root):
     p(f'Frente a la regla empírica, la cantidad vencida total {"disminuyó" if waste_change >= 0 else "aumentó"} '
       f'{number(abs(waste_change))} % y los insumo días con quiebre '
       f'{"disminuyeron" if shortage_change >= 0 else "aumentaron"} {number(abs(shortage_change))} %. '
+      'La diferencia total de vencimiento no fue concluyente: su intervalo incluye cero. '
+      f'El costo vencido {"disminuyó" if total_index.loc["waste_cost","relative_reduction_percent"] >= 0 else "aumentó"} '
+      f'{number(abs(total_index.loc["waste_cost","relative_reduction_percent"]))} %. '
       'Estos indicadores deben leerse juntos: atender más demanda puede elevar la merma y el gasto.')
     h('Alcance de los datos', 2)
     table(['Elemento','Contenido'], [
@@ -195,6 +208,10 @@ def build(root):
     p('El protocolo se guardó antes de ejecutar los experimentos. Se usaron las semillas 1001 a 1005 para los pilotos y 2001 a 2030 '
       'para el análisis definitivo. Las treinta réplicas constituyen un presupuesto exploratorio fijado de antemano, '
       'sin cálculo de potencia ni garantía de significancia. No se eligieron semillas ni se ajustó el generador para alcanzar las hipótesis.')
+    p('Los pilotos fueron verificaciones técnicas con las mismas reglas congeladas. Parte del entrenamiento '
+      'definitivo se ejecutó en paralelo a ellos, sin usar sus resultados para reajustar parámetros. '
+      'Los entrenamientos incompletos por cambios de concurrencia se reiniciaron con la misma semilla; '
+      'el registro de ejecución identifica esta organización y solo se analizan archivos completos verificados.')
     table(['Escenario','Platos y porciones base diarias','Atención'],[
         ['Menú criollo','Arroz con pollo 40; lentejas con bistec 25; estofado de pollo 20','Lunes a sábado'],
         ['Cevichería','Ceviche personal 35; arroz con mariscos 20; chicharrón de pescado 15','Todos los días'],
@@ -238,13 +255,16 @@ def build(root):
 
     h('Evaluación temporal y selección de modelos', page=True)
     table(['Partición','Periodo','Días'],[
-        ['Entrenamiento','2024 01 01 a 2025 05 31','517'],
-        ['Validación','2025 06 01 a 2025 09 15','107'],
-        ['Prueba reservada','2025 09 16 a 2025 12 31','107'],
+        ['Entrenamiento','01/01/2024 a 31/05/2025','517'],
+        ['Validación','01/06/2025 a 15/09/2025','107'],
+        ['Prueba reservada','16/09/2025 a 31/12/2025','107'],
     ],[1.7,4.2,.9])
     p('Se entrenó un modelo conjunto para las 24 series con identidad de perfil e insumo y escala calculada solo con el '
       'periodo de entrenamiento correspondiente. Las entradas contienen 14 rezagos y calendario conocido. La variante '
       'con contexto añade temperatura esperada, feriado y quincena. El modelo ingenuo usa la demanda de siete días atrás.')
+    p('Las semillas de generación cambian entre réplicas; la semilla de entrenamiento se mantiene en 42 '
+      'para todos los algoritmos. La variación entre réplicas describe la variación de los datos simulados bajo '
+      'estas reglas, sin evaluar por separado múltiples inicializaciones de cada modelo sobre un mismo dataset.')
     table(['Modelo','Configuraciones evaluadas','Entrenamiento'],[
         ['Random Forest','Profundidad 4 u 8; 70 árboles; mínimo 3 por hoja','Semilla 42; un hilo'],
         ['XGBoost','Profundidad 2 o 4; 90 árboles; tasa 0,06','Objetivo cuadrático; hist; un hilo'],
@@ -300,6 +320,11 @@ def build(root):
       'obtenido mediante 3 000 remuestreos con reemplazo y semilla 42. El contraste de rangos y el intervalo de la '
       'media evalúan aspectos diferentes de la distribución: pueden no coincidir exactamente. '
       'Las filas con diferencias nulas reciben p = 1. Los intervalos no están ajustados por comparaciones múltiples.')
+    p('Antes de los contrastes y del remuestreo se redondean uniformemente las diferencias a ocho decimales para '
+      'evitar rangos distintos por error binario de redondeo. Se utiliza el método automático de SciPy para Wilcoxon; '
+      'los empates y ceros pueden llevar a una aproximación asintótica. El contraste presupone réplicas independientes '
+      'y simetría de las diferencias bajo su hipótesis nula; no prueba directamente la igualdad de medias. '
+      'Por estas condiciones y el tamaño fijo, las p se interpretan como evidencia exploratoria.')
     p('En inventario, una diferencia positiva también indica mejora porque se resta pronóstico de empírica. '
       'La reducción relativa se calcula como la diferencia de medias dividida por la media empírica, multiplicada '
       'por cien; no es la media de treinta porcentajes. Si la media empírica es cero, el porcentaje no está definido. '
@@ -340,7 +365,11 @@ def build(root):
          number(total.set_index('indicator').loc[key,'relative_reduction_percent']),
          number(total.set_index('indicator').loc[key,'ci95_low'])+' a '+number(total.set_index('indicator').loc[key,'ci95_high'])]
         for key,label in [('expired','Vencido kg'),('waste_cost','Vencido S/'),('stockout','Insumo días con quiebre'),('unmet','No atendido kg'),('purchase_cost','Compras S/')]],
-        [2.1,1.05,1.05,1.0,1.7])
+        [2.0,1.05,1.05,1.0,1.7])
+    p(f'Las p complementarias sin ajuste son {number(total_index.loc["expired","p_value"],4)} para kg vencidos, '
+      f'{number(total_index.loc["waste_cost","p_value"],4)} para su costo y '
+      f'{number(total_index.loc["stockout","p_value"],4)} para quiebres. La comparación primaria por insumo '
+      'se detalla en las páginas siguientes con ajuste Holm.')
     image('politicas_pareadas.png','Figura 3  Cada línea representa una semilla; la línea oscura muestra la media. Diferencia = empírica menos pronóstico.')
     p('La cantidad vencida por insumo es el indicador primario. Las sumas de masa y costo son complementarias '
       'y no sustituyen el detalle. Un quiebre es un insumo día con cantidad no atendida; no equivale a un cliente perdido '
@@ -354,11 +383,11 @@ def build(root):
           'de insumo crudo. Las p se ajustan por Holm dentro de cada indicador, considerando las 24 series de los tres perfiles.')
         table(['Insumo','Vencido empírico kg','Vencido pronóstico kg','Reducción %','p Holm'],[
             [names[key],number(row.empirical_mean),number(row.forecast_mean),number(row.relative_reduction_percent),number(row.p_holm_24_series,4)]
-            for key,row in waste.iterrows()], [1.6,1.4,1.4,1.2,1.3])
+            for key,row in waste.iterrows()], [1.5,1.4,1.4,1.2,1.3])
         h('Insumo días con quiebre',2)
         table(['Insumo','Empírica','Pronóstico','Reducción %','p Holm'],[
             [names[key],number(row.empirical_mean),number(row.forecast_mean),number(row.relative_reduction_percent),number(row.p_holm_24_series,4)]
-            for key,row in stock.iterrows()], [1.6,1.4,1.4,1.2,1.3])
+            for key,row in stock.iterrows()], [1.5,1.4,1.4,1.2,1.3])
         p('Si la merma de referencia es cero, la reducción relativa no está definida; no se informa como 100 % '
           'ni como prueba de mejora. El CSV comparacion_politicas_por_insumo.csv incluye los intervalos de la '
           'diferencia absoluta, cantidad no atendida, costo vencido, tamaños de efecto y p sin ajustar.')
@@ -384,7 +413,7 @@ def build(root):
     good_s = set(zip(s.loc[(s.mean_paired_reduction > 0) & (s.p_holm_24_series < .05),'profile'],s.loc[(s.mean_paired_reduction > 0) & (s.p_holm_24_series < .05),'ingredient'],strict=True))
     p(f'{len(good_w)} de 24 series registraron reducción de vencimiento ≥ 10 % y p Holm < 0,05; '
       f'{len(good_s)} de 24 registraron menos quiebres con p Holm < 0,05. '
-      f'Ambos criterios coincidieron en {len(good_w & good_s)} series. Estos recuentos no autorizan una afirmación '
+      f'Ambos criterios coincidieron en {len(good_w & good_s)} {"serie" if len(good_w & good_s) == 1 else "series"}. Estos recuentos no autorizan una afirmación '
       'universal sobre restaurantes. La política de referencia y las vidas útiles siguen pendientes de validación externa.')
     h('HE4 Usabilidad',2)
     p('Pendiente. El prototipo permite consultar datos y resultados, pero sus pruebas automatizadas no miden SUS. '
@@ -467,9 +496,8 @@ def build(root):
       'versión adjunta de 35 páginas, especialmente objetivos e hipótesis en páginas 8 y 9. Documento en elaboración, sin resultados atribuidos.')
     p('El Peruano, calendario nacional 2024: https://elperuano.pe/noticia/238946-feriados-y-dias-no-laborables-en-peru-2024-revisa-aqui-los-dias-festivos-decretados-por-el-gobierno')
     p('El Peruano, calendario nacional 2025: https://www.elperuano.pe/noticia/261242-feriados-2025-en-peru-consulta-aqui-todos-los-dias-festivos-nacionales-y-organiza-tu-ano')
-    p('Código de generación, evaluación y simulación incluido en el paquete reproducible. Las versiones, '
-      'huellas de implementación y archivos de resultados permiten auditar cada cifra. La fecha del informe corresponde '
-      'a su elaboración; el periodo de los datos simulados es 2024 a 2025.')
+    p('SciPy, documentación oficial de scipy.stats.wilcoxon, hipótesis, empates y precisión numérica: '
+      'https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html')
     output = root/'informe_resultados.docx'
     doc.save(output)
     print(output)

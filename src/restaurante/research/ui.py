@@ -209,7 +209,7 @@ def experiment_tab():
                 'python -m restaurante.research.runner --seeds 42 --output data/research', language="powershell")
         st.caption("Para réplicas usa --seeds 42,43,44,45,46. Las versiones y parámetros quedan en el ZIP. "
                    "Primero valida y fija el generador; no cambies sus reglas buscando confirmar una hipótesis.")
-    uploaded = st.file_uploader("Cargar resultados locales: results-SEMILLA.zip", type="zip")
+    uploaded = st.file_uploader("Cargar resultados locales: results-SEMILLA.zip", type="zip", max_upload_size=20)
     if uploaded and st.button("Abrir resultados del experimento"):
         st.session_state["research_results"] = read_results(uploaded.getvalue())
         st.success("Resultados cargados. Son un archivo aportado por el usuario; no una certificación de su validez.")

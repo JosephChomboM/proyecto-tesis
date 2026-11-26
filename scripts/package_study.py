@@ -155,8 +155,9 @@ Los resúmenes finales agregan solo semillas 2001-2030; cada semilla es una rép
     allowed_folders = ['configuracion','pilot','final','resumen','figuras']
     for folder in allowed_folders:
         contents += [(path,'estudio/'+path.relative_to(root).as_posix()) for path in (root/folder).rglob('*') if path.is_file()]
-    for name in ['protocolo_congelado.json','versiones.json','informe_resultados.docx']:
-        contents.append((root/name,'estudio/'+name))
+    for name in ['protocolo_congelado.json','versiones.json','registro_ejecucion.json','informe_resultados.docx']:
+        if (root/name).exists():
+            contents.append((root/name,'estudio/'+name))
     contents += [(root/'LEEME.txt','LEEME.txt'),(root/'DICCIONARIO_DATOS.txt','DICCIONARIO_DATOS.txt'),
         (root/'requirements-estudio.txt','requirements-estudio.txt')]
     checksums = '\n'.join(hashlib.sha256(path.read_bytes()).hexdigest()+'  '+name for path,name in sorted(contents,key=lambda item:item[1]))+'\n'
