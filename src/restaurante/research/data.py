@@ -192,3 +192,48 @@ def bundle_zip(bundle):
             else:
                 archive.writestr(f"{name}.json", json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False))
     return output.getvalue()
+
+
+def read_bundle(content):
+    """Read only the bounded research dataset format; verify and regenerate its contents."""
+    csv_names = {"profiles", "recipes", "ingredients", "context", "dish_demand", "demand"}
+    if not isinstance(content, bytes) or len(content) > 20_000_000:
+        raise ValueError("Carga un ZIP de dataset de hasta 20 MB.")
+    loaded, payloads = {}, {}
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        names = archive.namelist()
+        expected = {name+".csv" for name in csv_names} | {"metadata.json"}
+        if set(names) != expected or len(names) != len(expected):
+            raise ValueError("Carga dataset-SEMILLA.zip: no el paquete de resultados ni el ZIP general.")
+        if sum(info.file_size for info in archive.infolist()) > 60_000_000:
+            raise ValueError("Dataset descomprimido demasiado grande.")
+        for name in csv_names:
+            payloads[name] = archive.read(name+".csv").decode("utf-8-sig")
+            loaded[name] = pd.read_csv(io.StringIO(payloads[name]), keep_default_na=False)
+        metadata = json.loads(archive.read("metadata.json"))
+    if not isinstance(metadata, dict) or not isinstance(metadata.get("generation"), dict):
+        raise ValueError("El dataset no contiene su configuración de generación.")
+    for name in ("demand", "context"):
+        digest = hashlib.sha256(payloads[name].encode()).hexdigest()
+        if metadata.get(name+"_sha256") != digest:
+            raise ValueError(f"La huella de {name} no coincide: el archivo fue alterado.")
+    config = GenerationConfig(**metadata["generation"])
+    regenerated = generate(config, (loaded["profiles"], loaded["recipes"], loaded["ingredients"]), loaded["context"])
+    for name in csv_names:
+        actual, expected = loaded[name].copy(), regenerated[name].copy()
+        if "date" in actual:
+            actual["date"] = pd.to_datetime(actual.date)
+        for column in actual.columns:
+            if column == "is_open":
+                if not actual[column].isin([True, False]).all():
+                    raise ValueError("Atención debe ser verdadero o falso.")
+        try:
+            if set(actual.columns) == set(expected.columns):
+                actual = actual[expected.columns]
+            pd.testing.assert_frame_equal(actual.reset_index(drop=True), expected.reset_index(drop=True),
+                                          check_dtype=False, check_exact=False, rtol=1e-10, atol=1e-10)
+        except AssertionError as exc:
+            raise ValueError(f"La tabla {name} no reproduce la configuración y semilla declaradas.") from exc
+        regenerated[name] = regenerated[name][loaded[name].columns]
+    regenerated["metadata"] = metadata
+    return regenerated

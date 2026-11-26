@@ -12,7 +12,7 @@ import streamlit as st
 from restaurante.access import is_public_demo
 from restaurante.presentation import note, page_header
 
-from .data import GenerationConfig, bundle_zip, example_tables, generate
+from .data import GenerationConfig, bundle_zip, example_tables, generate, read_bundle
 from .models import MODEL_NAMES, ExperimentConfig, available_models
 from .report import cost_comparison, printable_experiment
 from .runner import run_experiment
@@ -97,6 +97,17 @@ def generation_tab():
              "el sistema genera los días y calcula la necesidad de ingredientes.")
     st.warning("Los valores iniciales son supuestos ilustrativos. No están calibrados ni validados "
                "como representativos de Lima. Las recetas simplificadas no son un menú completo.")
+    with st.expander("Volver a cargar un dataset de investigación"):
+        dataset_file = st.file_uploader("Dataset reproducible: dataset-SEMILLA.zip", type="zip", max_upload_size=20)
+        st.caption("Abre el ZIP individual del dataset, no el paquete general. Se comprueban sus huellas, "
+                   "tablas y regeneración con la misma semilla. No modifica el inventario operativo.")
+        if st.button("Abrir dataset guardado", disabled=dataset_file is None):
+            archive_bytes = dataset_file.getvalue()
+            st.session_state["research_bundle"] = read_bundle(archive_bytes)
+            # Preserve checksummed CSV bytes across Windows/Linux newline differences.
+            st.session_state["research_bundle_archive"] = archive_bytes
+            st.session_state.pop("research_results", None)
+            st.success("Dataset verificado y cargado. Puedes descargarlo o ejecutar el experimento local.")
     defaults = example_tables()
     tables = []
     names = ("profiles", "recipes", "ingredients")
@@ -136,15 +147,20 @@ def generation_tab():
         with st.spinner("Generando solicitudes y necesidades por insumo…"):
             st.session_state["research_bundle"] = generate(
                 GenerationConfig(str(start), str(end), int(seed), noise), (p, r, i), context)
+        st.session_state.pop("research_bundle_archive", None)
         st.session_state.pop("research_results", None)
         st.success("Dataset generado. Aún requiere calibración y evaluación de expertos.")
     bundle = st.session_state.get("research_bundle")
     if bundle:
+        saved_config = bundle["metadata"]["generation"]
+        st.info(f"Dataset activo: semilla {saved_config['seed']}, desde {saved_config['start']} "
+                f"hasta {saved_config['end']}. Los controles anteriores solo se aplican al generar otro dataset.")
         a, b, c = st.columns(3)
         a.metric("Perfiles", bundle["profiles"].profile.nunique())
         b.metric("Días por serie", bundle["demand"].date.nunique())
         c.metric("Registros insumo-día", len(bundle["demand"]))
-        st.download_button("Descargar dataset y configuración (ZIP)", bundle_zip(bundle),
+        st.download_button("Descargar dataset y configuración (ZIP)",
+                           st.session_state.get("research_bundle_archive") or bundle_zip(bundle),
                            file_name=f"dataset-{bundle['metadata']['generation']['seed']}.zip", mime="application/zip")
         profile = st.selectbox("Vista previa del perfil", bundle["demand"].profile.unique())
         subset = bundle["dish_demand"][bundle["dish_demand"].profile == profile]

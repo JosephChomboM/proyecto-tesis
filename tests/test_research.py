@@ -8,7 +8,13 @@ import pandas as pd
 import pytest
 
 from restaurante.research.calendar import national_holidays
-from restaurante.research.data import GenerationConfig, bundle_zip, example_tables, generate
+from restaurante.research.data import (
+    GenerationConfig,
+    bundle_zip,
+    example_tables,
+    generate,
+    read_bundle,
+)
 from restaurante.research.models import (
     ExperimentConfig,
     Forecaster,
@@ -35,6 +41,23 @@ def small_bundle():
 def small_config(**kwargs):
     return ExperimentConfig("2024-03-01", "2024-03-31", models=("seasonal", "random_forest"),
                             external_variants=(False,), **kwargs)
+
+
+def test_saved_dataset_roundtrip_and_tampering(small_bundle):
+    saved = bundle_zip(small_bundle)
+    restored = read_bundle(saved)
+    pd.testing.assert_frame_equal(restored['demand'], small_bundle['demand'])
+    damaged = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(saved)) as source, zipfile.ZipFile(damaged, 'w') as target:
+        for name in source.namelist():
+            payload = source.read(name)
+            if name == 'demand.csv':
+                payload = payload.replace(b'2024-01-01', b'2024-01-02', 1)
+            target.writestr(name, payload)
+    with pytest.raises(ValueError, match='huella'):
+        read_bundle(damaged.getvalue())
+    with pytest.raises(ValueError, match='dataset-SEMILLA'):
+        read_bundle(bundle_zip({'metrics': pd.DataFrame({'x': [1]})}))
 
 
 def test_generator_reproducible_recipes_closures_and_independent_profiles():

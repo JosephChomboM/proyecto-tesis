@@ -114,7 +114,7 @@ Las bases anteriores se amplían automáticamente al esquema 2 sin borrar regist
 
 Este MVP cubre la operación de un restaurante por un administrador de confianza en un equipo local. No incluye facturación electrónica, pagos, cuentas de usuario ni publicación segura en Internet. El dashboard muestra ventas, stock y alertas; no debe interpretarse como un balance contable.
 
-La demostración usa recetas, precios y patrones ilustrativos. No es un conjunto calibrado con fuentes oficiales ni evidencia de resultados reales. Quedan como trabajo de investigación: calibración con fuentes verificables, tres perfiles completos de 2024–2025, comparación controlada Random Forest/XGBoost/LSTM, pruebas estadísticas, simulación comparativa de políticas, juicio de expertos y evaluación SUS. Consulta [la trazabilidad](docs/traceability.md) y [los criterios de validación](docs/validacion-peru.md).
+La demostración usa recetas, precios y patrones ilustrativos. No es un conjunto calibrado con fuentes oficiales ni evidencia de resultados reales. Investigación permite generar datos, comparar Random Forest/XGBoost/LSTM y una referencia estacional, y simular políticas de compra. El [estudio reproducible](docs/estudio-reproducible.md) fija cinco pilotos y treinta réplicas definitivas con tres perfiles de 2024–2025, conserva los archivos recargables y calcula comparaciones estadísticas. La calibración con datos externos, el juicio de expertos y la evaluación SUS requieren evidencia adicional. Consulta [la trazabilidad](docs/traceability.md) y [los criterios de validación](docs/validacion-peru.md).
 
 ## Desarrollo y verificación
 
