@@ -45,7 +45,7 @@ def paired_effect(difference):
 def summarize(root):
     root = Path(root)
     plan = json.loads((root/'protocolo_congelado.json').read_text(encoding='utf-8'))
-    metrics, inventory, statuses, quality, winning, block_metrics = [], [], [], [], [], []
+    metrics, inventory, statuses, quality, winning, block_metrics, portions = [], [], [], [], [], [], []
     for phase, seeds in [('pilot', plan['pilot_seeds']), ('final', plan['final_seeds'])]:
         for seed in seeds:
             folder = root/phase
@@ -76,6 +76,9 @@ def summarize(root):
                 'seconds': checkpoint['seconds']})
             if phase == 'pilot':
                 continue
+            daily_portions = dishes.groupby(['date','profile'], as_index=False).agg(
+                demand_portions=('demand_portions','sum'), is_open=('is_open','max'))
+            portions.append(daily_portions.assign(seed=seed))
             for container, key in [(metrics,'metrics'), (inventory,'inventory_summary'),
                     (statuses,'model_status'), (block_metrics,'forecast_blocks')]:
                 container.append(results[key].assign(seed=seed))
@@ -88,6 +91,18 @@ def summarize(root):
     frames = {'calidad_datasets': pd.DataFrame(quality), 'metricas_por_serie': pd.concat(metrics, ignore_index=True),
         'inventario_por_serie': pd.concat(inventory, ignore_index=True), 'seleccion_validacion': pd.concat(statuses, ignore_index=True),
         'metricas_modelo_seleccionado': pd.concat(winning, ignore_index=True), 'metricas_por_bloque': pd.concat(block_metrics, ignore_index=True)}
+    daily = pd.concat(portions, ignore_index=True)
+    frames['solicitudes_diarias_por_perfil'] = daily
+    descriptive = []
+    for profile, group in daily.groupby('profile'):
+        opened = group.loc[group.is_open, 'demand_portions']
+        descriptive.append({'profile': profile, 'replications': group.seed.nunique(),
+            'days_per_replication': group.date.nunique(), 'closed_days_total': int((~group.is_open).sum()),
+            'mean_all_days': float(group.demand_portions.mean()), 'mean_open_days': float(opened.mean()),
+            'std_open_days': float(opened.std()), 'median_open_days': float(opened.median()),
+            'p95_open_days': float(opened.quantile(.95)), 'min_open_days': int(opened.min()),
+            'max_open_days': int(opened.max())})
+    frames['descriptivos_solicitudes'] = pd.DataFrame(descriptive)
     m = frames['metricas_por_serie']
     indicators = ['mae','rmse','mape_percent','wape_percent','r2']
     # Average the 24 series within each seed first; sampling unit remains the seed.
@@ -115,7 +130,7 @@ def summarize(root):
     comparisons = []
     base = per_seed[per_seed.model == 'seasonal'].set_index('seed')
     for (model, external), group in per_seed[per_seed.model != 'seasonal'].groupby(['model','external']):
-        joined = group.set_index('seed').join(base[indicators], rsuffix='_base')
+        joined = group.set_index('seed').join(base[indicators].add_suffix('_base'), validate='1:1')
         comparisons.append({'model': model, 'external': bool(external), 'indicator': 'wape_percent',
             **paired_effect(joined.wape_percent_base-joined.wape_percent)})
     compare = pd.DataFrame(comparisons)

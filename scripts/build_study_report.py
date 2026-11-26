@@ -63,6 +63,18 @@ def build(root):
     fig.tight_layout()
     fig.savefig(figures/'politicas_pareadas.png', dpi=200)
     plt.close(fig)
+    daily_requests = read('solicitudes_diarias_por_perfil')
+    daily_requests['month'] = pd.to_datetime(daily_requests.date).dt.to_period('M').astype(str)
+    monthly = daily_requests.groupby(['month','profile']).demand_portions.mean().unstack()
+    fig, ax = plt.subplots(figsize=(8.5,3.2))
+    for key in monthly:
+        ax.plot(range(len(monthly)),monthly[key],label=PROFILES[key],lw=1.8)
+    ax.set_xticks(range(0,len(monthly),3),monthly.index[::3],rotation=30)
+    ax.set_ylabel('Solicitudes por día de calendario')
+    ax.legend(frameon=False,ncol=3)
+    fig.tight_layout()
+    fig.savefig(figures/'solicitudes_mensuales.png',dpi=200)
+    plt.close(fig)
 
     doc = Document()
     section = doc.sections[0]
@@ -205,6 +217,25 @@ def build(root):
       'necesarios para cocinar. Se registran 18 ingredientes distintos en el catálogo compartido. Todo se expresa en kg, '
       'incluido el aceite; sus costos también se refieren a kg. Esto evita mezclar unidades al sumar cantidades.')
 
+    h('Descripción de los datos generados', page=True)
+    descriptive = read('descriptivos_solicitudes')
+    p('La tabla resume las solicitudes de los tres platos de cada perfil en las treinta réplicas definitivas. '
+      'El promedio por día abierto, los percentiles y los extremos describen el generador; no son ventas '
+      'observadas en restaurantes. El promedio por día de calendario incluye los cierres dominicales del menú.')
+    table(['Perfil','Media calendario','Media abierto','Mediana abierto','P95 abierto','Máximo abierto'],[
+        [PROFILES[r.profile],number(r.mean_all_days),number(r.mean_open_days),number(r.median_open_days),
+         number(r.p95_open_days),number(r.max_open_days,0)] for r in descriptive.itertuples()], [1.5,1.06,1.06,1.06,1.06,1.06])
+    image('solicitudes_mensuales.png','Figura 1  Media diaria mensual de solicitudes simuladas, promediada sobre las treinta semillas.')
+    p('La variación anual de la cevichería responde al coeficiente térmico supuesto. Menú y pollería '
+      'no tienen efecto térmico en este protocolo. Las diferencias de nivel reflejan las porciones base y '
+      'los factores configurados; no verifican por sí mismas que esos volúmenes representen a Lima.')
+    h('Primeros días de la réplica 2001',2)
+    example = daily_requests[daily_requests.seed == 2001].pivot(index='date',columns='profile',values='demand_portions').head(4)
+    table(['Fecha','Menú','Cevichería','Pollería'],[
+        [key,number(row['menu'],0),number(row['cevicheria'],0),number(row['polleria'],0)] for key,row in example.iterrows()], [2.0,1.6,1.6,1.6])
+    p('Estas son solicitudes potenciales antes de limitar por existencias. El archivo solicitudes_diarias_por_perfil.csv '
+      'conserva toda la serie y permite reconstruir los descriptivos sin volver a entrenar.')
+
     h('Evaluación temporal y selección de modelos', page=True)
     table(['Partición','Periodo','Días'],[
         ['Entrenamiento','2024 01 01 a 2025 05 31','517'],
@@ -242,7 +273,7 @@ def build(root):
     p('Los promedios y las desviaciones entre semillas están disponibles en metricas_por_modelo.csv; '
       'metricas_por_serie.csv conserva cada combinación de perfil, insumo, modelo y semilla. '
       'Los resultados del modelo seleccionado no se sustituyen por los del modelo que mejor rindió en la prueba.')
-    image('error_modelos.png','Figura 1  Error medio en las treinta réplicas definitivas. Menor WAPE indica menor error relativo.')
+    image('error_modelos.png','Figura 2  Error medio en las treinta réplicas definitivas. Menor WAPE indica menor error relativo.')
     h('Contraste frente al ingenuo',2)
     significant = compare[(compare.mean_reduction > 0) & (compare.p_holm_6_variants < .05)]
     p(f'{len(significant)} de las seis variantes de aprendizaje redujeron el WAPE frente al ingenuo con p ajustada '
@@ -310,7 +341,7 @@ def build(root):
          number(total.set_index('indicator').loc[key,'ci95_low'])+' a '+number(total.set_index('indicator').loc[key,'ci95_high'])]
         for key,label in [('expired','Vencido kg'),('waste_cost','Vencido S/'),('stockout','Insumo días con quiebre'),('unmet','No atendido kg'),('purchase_cost','Compras S/')]],
         [2.1,1.05,1.05,1.0,1.7])
-    image('politicas_pareadas.png','Figura 2  Cada línea representa una semilla; la línea oscura muestra la media. Diferencia = empírica menos pronóstico.')
+    image('politicas_pareadas.png','Figura 3  Cada línea representa una semilla; la línea oscura muestra la media. Diferencia = empírica menos pronóstico.')
     p('La cantidad vencida por insumo es el indicador primario. Las sumas de masa y costo son complementarias '
       'y no sustituyen el detalle. Un quiebre es un insumo día con cantidad no atendida; no equivale a un cliente perdido '
       'ni a un plato completo no servido. Una reducción negativa indica empeoramiento.')
