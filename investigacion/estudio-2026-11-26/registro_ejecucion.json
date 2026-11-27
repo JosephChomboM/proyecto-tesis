@@ -1,0 +1,24 @@
+{
+  "scope": "Registro operativo de la ejecucion; sin cambios de parametros cientificos",
+  "pilot_role": "Cinco verificaciones tecnicas excluidas de los contrastes, con protocolo fijado antes de entrenar; parte del trabajo definitivo se ejecuto en paralelo a los pilotos",
+  "concurrency": "Primeras dos semillas definitivas con dos procesos; restantes con cuatro procesos independientes, sin ajuste de modelos por resultados",
+  "restarts": "Se interrumpieron entrenamientos incompletos al cambiar la concurrencia y al separar el lanzador de pilotos. Se repitieron con las mismas semillas y configuracion; solo archivos con checkpoint completo entran en el analisis",
+  "selection": "No se omitieron semillas completas ni se eligio la muestra por desempeno",
+  "fees": "Computo local; Render Free sin cambios de plan",
+  "software_verification": {
+    "pytest": "124 pruebas completas aprobadas; 3 pruebas de Investigacion repetidas tras ajustes de interfaz",
+    "ruff": "Aprobado",
+    "startup": "Health check de scripts/start.py aprobado",
+    "wheel": "Dataset 2001 recargado desde paquete instalable",
+    "render": "Render Free; commit 9f6e6d27ddaf194ec3d74c4b77b3dc3a9820d449 activo; dataset-2001.zip verificado en Linux y results-2001.zip abierto en reportes",
+    "render_observations": {
+      "profiles": 3,
+      "days": 731,
+      "demand_rows": 17544,
+      "empirical_waste_cost": 10476.76,
+      "forecast_waste_cost": 11340.94,
+      "empirical_stockout": 341,
+      "forecast_stockout": 282
+    }
+  }
+}

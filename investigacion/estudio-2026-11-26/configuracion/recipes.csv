@@ -1,0 +1,54 @@
+﻿dish,ingredient,quantity,source
+Arroz con pollo menu,arroz,0.12,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con pollo menu,pollo,0.25,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con pollo menu,cebolla,0.03,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con pollo menu,aceite,0.015,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con pollo menu,cilantro,0.01,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Lentejas con bistec menu,arroz,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Lentejas con bistec menu,lenteja,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Lentejas con bistec menu,res,0.15,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Lentejas con bistec menu,cebolla,0.03,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Lentejas con bistec menu,aceite,0.012,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Estofado de pollo menu,pollo,0.25,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Estofado de pollo menu,papa,0.18,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Estofado de pollo menu,arroz,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Estofado de pollo menu,cebolla,0.04,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Estofado de pollo menu,aceite,0.015,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Estofado de pollo menu,cilantro,0.005,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ceviche personal,pescado,0.25,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ceviche personal,limon,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ceviche personal,cebolla,0.06,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ceviche personal,camote,0.08,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ceviche personal,maiz,0.06,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con mariscos,arroz,0.12,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con mariscos,mariscos,0.2,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con mariscos,cebolla,0.03,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con mariscos,aceite,0.015,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Arroz con mariscos,limon,0.02,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Chicharron de pescado,pescado,0.22,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Chicharron de pescado,aceite,0.025,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Chicharron de pescado,camote,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Chicharron de pescado,maiz,0.05,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Chicharron de pescado,limon,0.03,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,pollo,0.35,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,papa,0.25,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,aceite,0.02,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,lechuga,0.025,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,tomate,0.03,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,pepino,0.02,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,aji,0.01,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Cuarto de pollo,sal,0.003,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,pollo,0.7,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,papa,0.5,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,aceite,0.04,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,lechuga,0.05,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,tomate,0.06,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,pepino,0.04,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,aji,0.02,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Medio pollo,sal,0.006,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ensalada personal,lechuga,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ensalada personal,tomate,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ensalada personal,pepino,0.1,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ensalada personal,aceite,0.005,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ensalada personal,sal,0.002,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+Ensalada personal,aji,0.005,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos

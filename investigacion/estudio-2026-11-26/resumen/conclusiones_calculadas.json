@@ -1,0 +1,22 @@
+{
+  "final_replications": 30,
+  "pilot_replications": 5,
+  "selected_mape_mean": 22.70455529531627,
+  "selected_wape_mean": 20.204341764777954,
+  "selected_series_mape_under20": 187,
+  "selected_series_total": 720,
+  "seeds_macro_mape_under20": 1,
+  "winners": [
+    {
+      "model": "xgboost",
+      "external": false,
+      "count": 7
+    },
+    {
+      "model": "xgboost",
+      "external": true,
+      "count": 23
+    }
+  ],
+  "scope": "Resultados computacionales condicionados al generador no calibrado; Aiken y SUS pendientes"
+}

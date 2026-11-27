@@ -118,6 +118,8 @@ La demostración usa recetas, precios y patrones ilustrativos. No es un conjunto
 
 ## Desarrollo y verificación
 
+El [estudio publicado con informe, datasets y resultados](investigacion/estudio-2026-11-26/README.md) contiene las cinco réplicas piloto y treinta definitivas, los archivos para recargarlas en Investigación y las instrucciones para repetir el entrenamiento.
+
 ```bash
 .venv/bin/python -m pytest
 .venv/bin/python -m ruff check .

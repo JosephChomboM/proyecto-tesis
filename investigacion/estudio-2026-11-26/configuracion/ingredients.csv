@@ -1,0 +1,19 @@
+﻿ingredient,name,cost,pack_size,shelf_life_days,lead_days,unit,source
+arroz,Arroz,4.0,5.0,90,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+pollo,Pollo,11.0,1.0,2,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+cebolla,Cebolla,3.0,1.0,7,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+aceite,Aceite,9.0,1.0,90,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+cilantro,Culantro,8.0,0.25,2,0,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+lenteja,Lenteja,8.0,1.0,90,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+res,Carne de res,24.0,1.0,3,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+papa,Papa,3.0,5.0,7,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+pescado,Pescado,18.0,1.0,1,0,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+limon,Limón,5.0,1.0,5,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+camote,Camote,3.0,1.0,7,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+maiz,Choclo,5.0,1.0,3,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+mariscos,Mariscos,22.0,1.0,1,0,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+lechuga,Lechuga,5.0,0.5,2,0,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+tomate,Tomate,4.0,1.0,4,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+pepino,Pepino,3.0,1.0,4,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+aji,Ají,8.0,0.25,3,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos
+sal,Sal,2.0,1.0,180,1,kg,Supuesto experimental fijado antes de las pruebas; sin calibración con ventas reales ni expertos

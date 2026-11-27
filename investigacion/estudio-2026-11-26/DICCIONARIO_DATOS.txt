@@ -1,0 +1,60 @@
+﻿DICCIONARIO DE LOS DATASETS DE INVESTIGACION
+Formato: CSV UTF-8 con BOM, separador coma, decimal punto y fechas AAAA-MM-DD.
+Las columnas de días de semana contienen listas entre comillas cuando tienen comas.
+Para recargar en la aplicación utiliza el ZIP individual completo y sin editar.
+
+profiles.csv: una fila por plato (9 filas).
+profile: código del escenario, menu, cevicheria o polleria; no es un restaurante real.
+restaurant: nombre descriptivo del perfil. dish: identificador único del plato.
+daily_portions: porciones base diarias, antes de calendario y ruido.
+weekdays: días abiertos, 0 lunes a 6 domingo.
+weekend_factor y holiday_factor: multiplicadores supuestos de la media.
+heat_effect: incremento relativo por grado sobre 21 grados Celsius.
+source: supuesto o fuente de los parámetros; en este estudio no calibrados.
+
+recipes.csv: una fila por plato e insumo seleccionado (53 filas).
+dish, ingredient: enlaces a los catálogos. quantity: kg crudos por porción solicitada.
+source: procedencia declarada. Las recetas son parciales, limitadas a insumos seleccionados.
+
+ingredients.csv: catálogo compartido de 18 ingredientes distintos.
+ingredient: código único. name: nombre visible. unit: kg en todo el estudio.
+cost: soles supuestos por kg. pack_size: múltiplo de compra en kg.
+shelf_life_days: vida útil supuesta completa al recibir el lote, bajo conservación adecuada.
+lead_days: días de plazo entre pedido y recepción; 0 significa entrega el mismo día.
+source: supuesto de este estudio. El aceite se expresa en kg y su costo es por kg.
+
+context.csv: una fila por fecha, 731 filas.
+date: fecha. expected_temperature: climatología sintética conocida, no medición futura.
+holiday: 1 feriado nacional, 0 otro día. context_source: fuente o supuesto explícito.
+payday: indicador supuesto de los días 15, 30 y 31; no pagos reales observados.
+Los feriados no equivalen a cierre; cada perfil mantiene su calendario de apertura.
+
+dish_demand.csv: una fila por fecha, perfil y plato, 6 579 filas.
+date, profile, dish: clave conjunta. is_open: True/False según calendario del perfil.
+demand_portions: solicitudes potenciales simuladas; incluye lo no atendido por falta de stock.
+No son comprobantes de venta ni conteos observados en un restaurante.
+
+demand.csv: una fila por fecha, perfil e insumo, 17 544 filas.
+date, profile, ingredient: clave conjunta de 24 series de 731 días.
+demand: kg necesarios = suma de porciones solicitadas por cantidad cruda de receta.
+expected_temperature, holiday, context_source, payday: contexto de esa fecha.
+is_open: atención del perfil; un cierre tiene demanda cero explícita.
+Los ceros son cierres conocidos; no se sustituyen registros faltantes por cero.
+
+metadata.json: configuración de generación, semilla, supuestos, fuentes y huellas.
+sources_validated=False y experts_completed=False: calibración y juicio de expertos pendientes.
+No modificar un CSV ni la semilla para buscar un resultado favorable. Para un escenario
+nuevo, editar las tablas de configuración y generar otro dataset con protocolo nuevo.
+
+RESULTADOS
+metrics.csv: error por serie, modelo y contexto; MAE/RMSE/sesgo en kg, MAPE/WAPE en porcentaje.
+MAPE excluye ceros e informa su cantidad; R2 indefinido o negativo se conserva.
+predictions.csv: valores solicitados y pronosticados por fecha y origen de bloque.
+decision_predictions.csv: horizontes emitidos diariamente para simular las compras.
+model_status.csv y tuning.csv: configuraciones y resultados de validación; no selección en prueba.
+inventory_daily.csv: pedidos, recepciones, consumo atendido, no atendido, vencido y saldo por día y política.
+stockout cuenta insumo días con demanda no atendida; no clientes ni platos completos.
+inventory_summary.csv: totales por perfil, ingrediente y política, con stock inicial y final.
+policy empirical: media de días abiertos en los 28 días previos; policy forecast: modelo seleccionado.
+inventory_protocol.json y experiment.json: reglas y selección efectivamente utilizadas.
+Los resúmenes finales agregan solo semillas 2001-2030; cada semilla es una réplica pareada.

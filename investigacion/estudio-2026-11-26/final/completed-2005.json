@@ -1,0 +1,16 @@
+{
+  "phase": "final",
+  "seed": 2005,
+  "seconds": 267.6399999999994,
+  "dish_rows": 6579,
+  "demand_rows": 17544,
+  "winner": {
+    "model": "xgboost",
+    "external": true,
+    "status": "Ejecutado",
+    "chosen_size": 4,
+    "validation_score": 20.350663874672374
+  },
+  "dataset_sha256": "36176bcf537a93f9db9004381e1cad4fd409ffce4909ad7ce4a59ebcff0c40ae",
+  "results_sha256": "a843a9a154e444825d46c2adea1a88a46dcdf87e9e10684cc78bb130c5cd6715"
+}
