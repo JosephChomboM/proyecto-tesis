@@ -12,7 +12,7 @@ import streamlit as st
 from restaurante.access import is_public_demo, require_access
 from restaurante.calendar import CALENDAR_SOURCES, EVENT_KINDS, holidays_for_year
 from restaurante.evaluation import rolling_evaluation
-from restaurante.forecast import forecast_demand, purchase_plan
+from restaurante.forecast import MODEL_NAME, forecast_demand, purchase_plan
 from restaurante.presentation import brand, context_bar, load_styles, note, page_header, welcome
 from restaurante.reports import operation_report, printable_report
 from restaurante.research.ui import research_page
@@ -740,7 +740,7 @@ def planning(service, today):
     if not limited.empty:
         st.warning("Hay feriados o eventos con pocos antecedentes, o insumos sin modelo entrenado. "
                    "El efecto no está validado: revisa las cantidades. No se aplica un aumento fijo por ser feriado o evento.")
-    st.caption("Random Forest recibe el indicador de feriado y el tipo de evento junto al historial. "
+    st.caption(f"{MODEL_NAME} recibe el indicador de feriado y el tipo de evento junto al historial. "
                "Las referencias por promedio o semana no ajustan su demanda por ese contexto. "
                "Un cierre excepcional anula la demanda prevista de esa fecha.")
     if not predictions.empty and predictions["missing_days"].max() > 0:
