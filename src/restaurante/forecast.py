@@ -13,6 +13,11 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
+try:  # Optional research dependency: the study's selected model.
+    from xgboost import XGBRegressor
+except ImportError:  # pragma: no cover - depends on installed extras
+    XGBRegressor = None
+
 from .calendar import CONTEXT_FEATURES, daily_context
 
 FORECAST_COLUMNS = ["date", "ingredient_id", "predicted", "method", "history_days",
@@ -68,6 +73,20 @@ def _catalog(ingredients: pd.DataFrame) -> pd.DataFrame:
     if "active" in result:
         result = result[result["active"].astype(bool)]
     return result
+
+
+MODEL_NAME = "XGBoost" if XGBRegressor is not None else "Random Forest"
+
+
+def _regressor():
+    """XGBoost with the configuration selected in the 2026-11-26 study (depth 4,
+    90 trees, rate 0.06). Falls back to Random Forest when xgboost is not installed."""
+    if XGBRegressor is not None:
+        return XGBRegressor(n_estimators=90, max_depth=4, learning_rate=0.06,
+                            objective="reg:squarederror", tree_method="hist",
+                            random_state=42, n_jobs=1)
+    return RandomForestRegressor(n_estimators=80, max_depth=8, min_samples_leaf=2,
+                                 random_state=42, n_jobs=1)
 
 
 def _features(values: list[float], day, start, context=None) -> list[float]:
@@ -149,14 +168,8 @@ def forecast_demand(history, ingredients, origin, horizon=7, operating_weekdays=
                     x.append(_features(values[:offset], target_day, start,
                                        context_lookup[target_day] if use_context else None))
                     y.append(values[offset])
-                model = RandomForestRegressor(
-                    n_estimators=80,
-                    max_depth=8,
-                    min_samples_leaf=2,
-                    random_state=42,
-                    n_jobs=1,
-                ).fit(x, y) if x else None
-                method = "Random Forest" if model is not None else "Promedio histórico"
+                model = _regressor().fit(x, y) if x else None
+                method = MODEL_NAME if model is not None else "Promedio histórico"
             elif strategy != "mean" and len(values) >= 7 and observed_days >= 7:
                 method = "Ingenuo estacional (historial limitado)"
             else:

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from restaurante.forecast import forecast_demand, purchase_plan
+from restaurante.forecast import MODEL_NAME, forecast_demand, purchase_plan
 
 
 def ingredients(**changes):
@@ -63,7 +63,7 @@ def test_random_forest_uses_only_prior_data_and_is_deterministic():
     actual = forecast_demand(data, ingredients(), origin)
     pd.testing.assert_frame_equal(expected, actual)
     assert len(actual) == 7
-    assert set(actual.method) == {"Random Forest"}
+    assert set(actual.method) == {MODEL_NAME}
     assert actual.history_days.eq(84).all()
     assert actual.predicted.between(9, 17).all()
 
